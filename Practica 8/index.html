@@ -1,0 +1,1762 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>Objeto Color en WebGL 2.0 (v1)</title>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8">
+
+    <style>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            overflow: hidden;
+
+            display: block;
+
+        }
+
+        #gui {
+
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        #menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 250px;
+            height: 100%;
+            background-color: #282c34;
+            border-right: 1px solid #3a3f47;
+            padding: 10px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            z-index: 10;
+            overflow-y: auto;
+            box-shadow: 2px 0 15px rgba(0, 0, 0, 0.4);
+            color: #e0e0e0;
+        }
+
+        #menu h3 {
+            color: #61afef;
+            margin-bottom: 25px;
+            text-align: center;
+            font-size: 1.6em;
+            border-bottom: 1px solid #4a505b;
+            padding-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #menu h2 {
+            color: #98c379;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            border-bottom: 1px solid #3a3f47;
+            padding-bottom: 8px;
+        }
+
+        #menu label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #b0b0b0;
+        }
+
+        #menu input[type="file"],
+        #menu select,
+        #menu input[type="color"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #5a606a;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 0.95em;
+            background-color: #3e4451;
+            color: #e0e0e0;
+        }
+
+        #menu input[type="file"] {
+            background-color: #4a505b;
+            cursor: pointer;
+            color: #e0e0e0;
+        }
+
+        #menu select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+
+            background-repeat: no-repeat;
+            background-position: right 10px top 50%;
+            background-size: 12px auto;
+        }
+
+        #menu input[type="color"] {
+            height: 40px;
+            padding: 5px;
+            border: 1px solid #5a606a;
+            border-radius: 5px;
+        }
+
+
+
+        #menu p {
+            margin-bottom: 15px;
+            color: #b0b0b0;
+            font-weight: bold;
+        }
+
+        #menu input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+            vertical-align: middle;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #61afef;
+            border-radius: 3px;
+            background-color: #3e4451;
+            cursor: pointer;
+            position: relative;
+            top: -1px;
+        }
+
+        #menu input[type="checkbox"]:checked {
+            background-color: #61afef;
+            border-color: #61afef;
+        }
+
+        #menu input[type="checkbox"]:checked::after {
+            content: '✔';
+            color: white;
+            font-size: 14px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            line-height: 1;
+        }
+
+        #menu input[type="checkbox"]:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(97, 175, 239, 0.5);
+        }
+
+        #content {
+            margin-left: 250px;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div id="content">
+        <div id="canvas-holder">
+            <canvas id="webglcanvas" style="border: none;"></canvas>
+        </div>
+
+        <div id="menu">
+            <h3>CONFIGURACIÓN</h3>
+
+            <h2>Modelo 3D</h2>
+            <label for="fileInput">Subir modelo OBJ:</label>
+            <input type="file" id="fileInput" accept=".obj"><br>
+
+            <label for="renderStyle">Estilo de renderizado:</label>
+            <select id="renderStyle">
+                <option value="solid">Color Sólido</option>
+                <option value="wireframe">Malla </option>
+            </select><br>
+
+            <h2>Color y Fondo</h2>
+            <label for="modoColor">Modo de color:</label>
+            <select id="modoColor">
+                <option value="material">Usar Material (MTL)</option>
+                <option value="manual">Color Fijo</option>
+            </select><br>
+
+           
+
+            <label for="fondoPicker">Color de fondo:</label>
+            <input type="color" id="fondoPicker" value="#1e2127"><br>
+
+            <h2>Iluminación</h2>
+            <p>
+                <label>
+                    <input type="checkbox" id="iluminacionCheckbox" checked> Iluminación
+                </label>
+            </p>
+            <label for="brilloSlider">Brillo de la luz:</label>
+            <input type="range" id="brilloSlider" min="0.0" max="2.0" value="1.0" step="0.1"
+                style="width: calc(100% - 20px);"><br>
+
+
+            <h3>proyeccion:</h3>
+            <div id="opciones">
+                <input type="radio" id="opcion1" name="proyeccion" value="proyeccion1" checked="checked"> Proyección en
+                Perspectiva<br>
+                <input type="radio" id="opcion2" name="proyeccion" value="proyeccion2"> Proyección en Perspectiva
+                (frustum)<br>
+                <input type="radio" id="opcion3" name="proyeccion" value="proyeccion3"> Proyección Paralela
+            </div>
+
+            <p><label><input type="checkbox" id="ocultamientoDeSuperficies"> Habilita el Buffer de Profundidad
+                    (DEPTH_TEST)</label></p>
+
+
+        </div>
+    </div>
+    <!--
+        /***************************************************************************/
+        /* Se definen los códigos shaders.                                         */
+        /***************************************************************************/
+      -->
+    <script id="vs" type="vertex">
+      #version 300 es
+      precision mediump float;
+      uniform mat4 uMatrizProyeccion;
+      uniform mat4 uMatrizVista;
+      uniform mat4 uMatrizModelo;
+
+      layout(location = 0) in vec3 aVertices;
+      layout(location = 1) in vec3 aNormales;
+
+      out vec3 vNormales;
+      out vec3 vVertices;
+
+      void main() {
+
+        // En coordenadas de la camara (la normal)
+        vNormales = mat3(uMatrizVista) * mat3(uMatrizModelo) * normalize(aNormales);
+
+        // En coordenadas de la camara (el vertice)
+        vec4 vertices = uMatrizVista * uMatrizModelo * vec4(aVertices, 1.0);
+
+        // vertices(x,y,z)
+        vVertices = vertices.xyz / vertices.w;
+
+        // P' = Proy * Vista * Modelo * P
+        gl_Position = uMatrizProyeccion * vertices;
+      }
+    </script>
+
+    <script id="fs" type="fragment">
+        #version 300 es
+        precision highp float;
+        
+        uniform vec3 uPosicionVista;
+        uniform vec3 uPosicionLuz;
+
+        // Uniforms de Intensidad de Luz
+        uniform vec3 u_Ia;
+        uniform vec3 u_Id;
+        uniform vec3 u_Is;
+
+        // Uniforms de Material del Objeto
+        uniform vec3 u_ka;
+        uniform vec3 u_kd;
+        uniform vec3 u_ks;
+        uniform float u_brillo;
+
+        // Uniforms de Control (para el menú)
+        uniform bool uIluminacionActiva;
+
+        // Variables de entrada que vienen del Vertex Shader
+        in vec3 vNormales;
+        in vec3 vVertices;
+
+        // Variable de salida (el color del píxel)
+        out vec4 color;
+
+        void main() {
+            if (!uIluminacionActiva) {
+                // Si la iluminación está inactiva, usar solo el color difuso del material.
+                color = vec4(u_kd, 1.0); 
+            } else {
+                // --- Cálculo de Iluminación Phong ---
+                
+                // Vectores necesarios (Normal, Luz, Vista, Half-Vector)
+                vec3 N = normalize(vNormales);
+                vec3 L = normalize(uPosicionLuz - vVertices);
+                vec3 V = normalize(uPosicionVista - vVertices); 
+                vec3 H = normalize(L + V);
+
+                // Factores de atenuación
+                float NL = max(0.0, dot(N, L));
+                float NH = max(0.0, dot(N, H));
+
+                // Cálculo de cada componente de luz
+                vec3 luzAmbiente = u_ka * u_Ia;
+                vec3 luzDifusa = u_kd * u_Id * NL;
+                vec3 luzEspecular = u_ks * u_Is * pow(NH, u_brillo);
+
+                // Color final es la suma de las componentes
+                vec3 rgb = luzAmbiente + luzDifusa + luzEspecular;
+                color = vec4(rgb, 1.0);
+            }
+        }
+        </script>
+
+    <script>
+        "use strict";
+        var canvas;
+
+        /* Variables globales */
+        var programaID;
+        var gl;
+
+       
+        var objetoIluminado;
+        var objetoMalla;
+
+        var uMatrizProyeccion;
+        var uMatrizVista;
+        var uMatrizModelo;
+        var uIluminacionActiva;
+        var uPosicionVista;
+        var uPosicionLuz;
+        var u_Ia, u_Id, u_Is;
+        var u_ka, u_kd, u_ks, u_brillo;
+        
+
+     
+        var objetoRender = true; 
+        var iluminacionGeneralActiva = true; 
+        var brilloLuz = 1.0;
+
+        let colorManual = [0.8, 0.8, 0.8];
+
+       
+        var posicionLuz = [5.0, 5.0, 10.0]; 
+        var posicionVista = [0, 0, 5.0];
+
+        
+        var MatrizProyeccion = new Array(16);
+        var MatrizVista = new Array(16);
+        var MatrizModelo = new Array(16);
+    
+        var tx = 0, ty = 0;
+        var sx = 1, sy = 1, sz = 1;
+        var MatrizRotacion = new Array(16);
+        var Matriz = new Array(16);
+        var boton_izq_presionado = false;
+        var boton_der_presionado = false;
+        var arcBall;
+
+        var ancho = 0;
+        var alto = 0;
+
+
+
+
+
+        /***************************************************************************/
+        /* Se crean, compilan y enlazan los programas Shader                       */
+        /***************************************************************************/
+        function compilaEnlazaLosShaders() {
+
+            /* Se compila el shader de vertice */
+            var shaderDeVertice = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(shaderDeVertice, document.getElementById("vs").text.trim());
+            gl.compileShader(shaderDeVertice);
+            if (!gl.getShaderParameter(shaderDeVertice, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shaderDeVertice));
+            }
+
+            /* Se compila el shader de fragmento */
+            var shaderDeFragmento = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(shaderDeFragmento, document.getElementById("fs").text.trim());
+            gl.compileShader(shaderDeFragmento);
+            if (!gl.getShaderParameter(shaderDeFragmento, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shaderDeFragmento));
+            }
+
+            /* Se enlaza ambos shader */
+            programaID = gl.createProgram();
+            gl.attachShader(programaID, shaderDeVertice);
+            gl.attachShader(programaID, shaderDeFragmento);
+            gl.linkProgram(programaID);
+            if (!gl.getProgramParameter(programaID, gl.LINK_STATUS)) {
+                console.error(gl.getProgramInfoLog(programaID));
+            }
+
+            /* Se instala el programa de shaders para utilizarlo */
+            gl.useProgram(programaID);
+        }
+
+        /***************************************************************************/
+        /* Transformaciones mediante matrices                                      */
+        /***************************************************************************/
+
+        /* Convierte de grados a radianes */
+        function toRadians(grados) {
+            return grados * Math.PI / 180;
+        };
+
+        /* Matriz Identidad */
+        function identidad(r) {
+            r[0] = 1; r[4] = 0; r[8] = 0; r[12] = 0;
+            r[1] = 0; r[5] = 1; r[9] = 0; r[13] = 0;
+            r[2] = 0; r[6] = 0; r[10] = 1; r[14] = 0;
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+        }
+        function multiplicaMV(c, a, b) {
+            let r = new Array(16);
+
+            /*
+              | a[0] a[4] a[ 8] a[12] |     | b[0] |
+              | a[1] a[5] a[ 9] a[13] |  *  | b[1] |
+              | a[2] a[6] a[10] a[14] |     | b[2] |
+              | a[3] a[7] a[11] a[15] |
+              */
+
+            r[0] = a[0] * b[0] + a[4] * b[1] + a[8] * b[2] + a[12];
+            r[1] = a[1] * b[0] + a[5] * b[1] + a[9] * b[2] + a[13];
+            r[2] = a[2] * b[0] + a[6] * b[1] + a[10] * b[2] + a[14];
+            for (var i = 0; i < 3; i++)
+                c[i] = r[i];
+        }
+
+
+        /* Traslación - glTranslatef */
+        function traslacion(matriz, tx, ty, tz) {
+            var r = new Array(16);
+            r[0] = 1; r[4] = 0; r[8] = 0; r[12] = tx;
+            r[1] = 0; r[5] = 1; r[9] = 0; r[13] = ty;
+            r[2] = 0; r[6] = 0; r[10] = 1; r[14] = tz;
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+            multiplica(matriz, matriz, r);
+        }
+
+        /* Escalación - glScalef */
+        function escalacion(matriz, sx, sy, sz) {
+            var r = new Array(16);
+            r[0] = sx; r[4] = 0; r[8] = 0; r[12] = 0;
+            r[1] = 0; r[5] = sy; r[9] = 0; r[13] = 0;
+            r[2] = 0; r[6] = 0; r[10] = sz; r[14] = 0;
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+            multiplica(matriz, matriz, r);
+        }
+
+        /* Rotación sobre X - glRotatef */
+        function rotacionX(matriz, theta) {
+            let r = new Array(16);
+            var c = Math.cos(toRadians(theta));
+            var s = Math.sin(toRadians(theta));
+            r[0] = 1; r[4] = 0; r[8] = 0; r[12] = 0;
+            r[1] = 0; r[5] = c; r[9] = -s; r[13] = 0;
+            r[2] = 0; r[6] = s; r[10] = c; r[14] = 0;
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+            multiplica(matriz, matriz, r);
+        }
+
+        /* Rotación sobre Y - glRotatef */
+        function rotacionY(matriz, theta) {
+            let r = new Array(16);
+            var c = Math.cos(toRadians(theta));
+            var s = Math.sin(toRadians(theta));
+            r[0] = c; r[4] = 0; r[8] = s; r[12] = 0;
+            r[1] = 0; r[5] = 1; r[9] = 0; r[13] = 0;
+            r[2] = -s; r[6] = 0; r[10] = c; r[14] = 0;
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+            multiplica(matriz, matriz, r);
+        }
+
+        /* Rotación sobre Z - glRotatef */
+        function rotacionZ(matriz, theta) {
+            let r = new Array(16);
+            var c = Math.cos(toRadians(theta));
+            var s = Math.sin(toRadians(theta));
+            r[0] = c; r[4] = -s; r[8] = 0; r[12] = 0;
+            r[1] = s; r[5] = c; r[9] = 0; r[13] = 0;
+            r[2] = 0; r[6] = 0; r[10] = 1; r[14] = 0;
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+            multiplica(matriz, matriz, r);
+        }
+
+        /* Proyección Paralela - glOrtho */
+        function ortho(r, izq, der, abj, arr, cerca, lejos) {
+            r[0] = 2 / (der - izq); r[4] = 0; r[8] = 0; r[12] = -(der + izq) / (der - izq);
+            r[1] = 0; r[5] = 2 / (arr - abj); r[9] = 0; r[13] = -(arr + abj) / (arr - abj);
+            r[2] = 0; r[6] = 0; r[10] = -2 / (lejos - cerca); r[14] = -(lejos + cerca) / (lejos - cerca);
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+        }
+
+        /* Proyección Perspectiva - glFrustum */
+        function frustum(r, izq, der, abj, arr, cerca, lejos) {
+            r[0] = 2 * cerca / (der - izq); r[4] = 0; r[8] = (der + izq) / (der - izq); r[12] = 0;
+            r[1] = 0; r[5] = 2 * cerca / (arr - abj); r[9] = (arr + abj) / (arr - abj); r[13] = 0;
+            r[2] = 0; r[6] = 0; r[10] = -(lejos + cerca) / (lejos - cerca); r[14] = -2 * lejos * cerca / (lejos - cerca);
+            r[3] = 0; r[7] = 0; r[11] = -1; r[15] = 0;
+        }
+
+        /* Proyección Perspectiva - gluPerspective */
+        function perspective(r, fovy, aspecto, cerca, lejos) {
+            var ang = fovy * 0.5;
+            var f = (Math.abs(Math.sin(toRadians(ang))) < 1e-8 ? 0 : 1) / Math.tan(toRadians(ang));
+            r[0] = f / aspecto; r[4] = 0; r[8] = 0; r[12] = 0;
+            r[1] = 0; r[5] = f; r[9] = 0; r[13] = 0;
+            r[2] = 0; r[6] = 0; r[10] = -(lejos + cerca) / (lejos - cerca); r[14] = -2.0 * lejos * cerca / (lejos - cerca);
+            r[3] = 0; r[7] = 0; r[11] = - 1.0; r[15] = 0;
+        }
+
+        /* Multiplicación de matrices de 4 x 4 */
+        function multiplica(c, a, b) {
+            let r = new Array(16);
+            let i, j, k;
+            for (i = 0; i < 4; i++) {
+                for (j = 0; j < 4; j++) {
+                    let s = 0;
+                    for (k = 0; k < 4; k++)
+                        s = s + a[i + k * 4] * b[k + j * 4];
+                    r[i + j * 4] = s;
+                }
+            }
+            for (i = 0; i < 16; i++)
+
+                c[i] = r[i];
+        }
+
+        function lookAt(r, vistaX, vistaY, vistaZ, centroX,
+            centroY, centroZ, arribaX, arribaY, arribaZ) {
+
+            var vista = new Vector3(vistaX, vistaY, vistaZ);
+            var centro = new Vector3(centroX, centroY, centroZ);
+            var arriba = new Vector3(arribaX, arribaY, arribaZ);
+
+            /* n = vista - centro */
+            var n = vista.menos(centro);
+
+            /* u = u / || u || */
+            n.normaliza();
+
+            /* v = arriba */
+            var v = arriba;
+
+            /* v = v / || v || */
+            //v.normaliza(); // No es necesario!
+
+            /* u = v x n */
+            var u = v.producto_vectorial(n);
+
+            /* u = u / || u || */
+            u.normaliza();
+
+            /* Recalcula v: v = n x u */
+            v = n.producto_vectorial(u);
+
+            r[0] = u.x; r[4] = u.y; r[8] = u.z; r[12] = -(vistaX * u.x + vistaY * u.y + vistaZ * u.z);
+            r[1] = v.x; r[5] = v.y; r[9] = v.z; r[13] = -(vistaX * v.x + vistaY * v.y + vistaZ * v.z);
+            r[2] = n.x; r[6] = n.y; r[10] = n.z; r[14] = -(vistaX * n.x + vistaY * n.y + vistaZ * n.z);
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+        }
+
+
+        /**/
+        class Vector3 {
+
+            /**
+             * Construye un nuevo Vector.
+             */
+            constructor(x, y, z) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+            }
+
+            /**
+             *                   u = Suma de vectores
+             *  u = v1 + v2     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             *                   u = (v1.x + v2.x, v1.y + v2.y, v1.z + v2.z)
+             */
+            mas(v2) {
+                return (new Vector3(this.x + v2.x, this.y + v2.y, this.z + v2.z));
+            }
+
+            /**
+             *                   u = Resta de vectores
+             *  u = v1 - v2     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             *                   u = (v1.x - v2.x, v1.y - v2.y, v1.z - v2.z)
+             */
+            menos(v2) {
+                return (new Vector3(this.x - v2.x, this.y - v2.y, this.z - v2.z));
+            }
+
+            /**
+             *                      u x v = Producto vectorial o producto cruz
+             * u = (u.x, u.y, u.z) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             * v = (v.x, v.y, v.z)  u x v = (u.y * v.z - u.z * v.y,   
+             *                               u.z * v.x - u.x * v.z,
+             *                               u.x * v.y - u.y * v.x)                  
+             */
+            producto_vectorial(v2) {
+                var r = new Vector3();
+                r.x = (this.y * v2.z) - (this.z * v2.y);
+                r.y = (this.z * v2.x) - (this.x * v2.z);
+                r.z = (this.x * v2.y) - (this.y * v2.x);
+                return r;
+            }
+
+            /**
+             *                      u . v = Producto escalar o producto punto
+             * u = (u.x, u.y, u.z) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             * v = (v.x, v.y, v.z)  u . v = u.x v.x + u.y v.y + u.z v.z
+             *                                          
+             */
+            producto_escalar(v2) {
+                return (this.x * v2.x) + (this.y * v2.y) + (this.z * v2.z);
+            }
+
+            /**
+             *                     |v| = Longitud de un vector o magnitud
+             * v = (x, y, z)    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             *                     |v| = raiz_cuadrada (x^2 + y^2 + z^2) 
+             *                                          
+             */
+            longitud() {
+                return (Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z));
+            }
+
+            /**
+             *        v            u = Vector unitario o de longitud 1
+             *  u  = ---        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             *       |v|           u = Vector normalizado
+             *                     
+             */
+            normaliza() {
+                var l = this.longitud();
+                if (l > 0) {
+                    this.x = this.x / l;
+                    this.y = this.y / l;
+                    this.z = this.z / l;
+                }
+            }
+            /**
+             *    3
+             *     ^
+             *     |
+             *   v |
+             *     |
+             *    1 -------- > 2
+             */
+            normal(v1, v2, v3) {
+                var u = new Vector3(); // vector u
+                var v = new Vector3(); // vector v
+                var n = new Vector3(); // vector n
+
+                /* Calcula los vectores u y v */
+                u = v2.menos(v1);
+                v = v3.menos(v1);
+
+                /* n = u x v */
+                n = u.producto_vectorial(v);
+
+                /* Normaliza */
+                n.normaliza();
+
+                return n;
+            }
+
+            toString() {
+                return "Vector3 [x=" + this.x + ", y=" + this.y + ", z=" + this.z + "]";
+            }
+        }
+
+        /***************************************************************************/
+        /* ArcBall: Obtiene los vectores U y V de la esfera (x^2 + y^2 + z^2 = 1). */
+        /***************************************************************************/
+
+        var Punto2f = function (x, y) {
+            // Atributos publicos
+            this.x = x;
+            this.y = y;
+        }
+
+        class ArcBall {
+
+            /**
+             * Construye un nuevo ArcBall.
+             */
+            constructor(w, h) {
+                this.Epsilon = 1.0e-5;
+                this.U = new Vector3();
+                this.V = new Vector3();
+                this.ajusta(w, h);
+            }
+
+            /* Ajusta el ancho y alto de la ventana */
+            ajusta(w, h) {
+                if (!((w > 1.0) && (h > 1.0)))
+                    document.write("ERROR");
+
+                /* Ajusta el factor para el ancho y alto (2 = [-1..1]) */
+                this.ajustaAncho = 2.0 / (w - 1.0);
+                this.ajustaAlto = 2.0 / (h - 1.0);
+            }
+
+            /* Obtiene el vector dado un punto (x,y) */
+            obtieneVector(vector, x, y) {
+                /* Copia punto */
+                let temp = new Punto2f(x, y);
+
+                /* Ajusta las coordenadas del punto al rango [-1..1] */
+                temp.x = (temp.x * this.ajustaAncho) - 1.0;
+                temp.y = 1.0 - (temp.y * this.ajustaAlto);
+
+                /* Calcula el cuadrado de la longitud del vector */
+                let longitud2 = (temp.x * temp.x) + (temp.y * temp.y);
+
+                /* 
+                 * Considerando que: radio^2 = x^2 + y^2 + z^2
+                 * ¿Cuales son los valores de x, y y z?
+                 * 
+                 * Si el punto está fuera de la esfera... (longitud2 > 1)
+                 */
+
+                if (longitud2 > 1.0) {
+                    /* Calcula un factor de normalización (radio / sqrt(longitud2)) */
+                    let norma = (1.0 / Math.sqrt(longitud2));
+
+                    /* Retorna el vector "normalizado", un punto sobre la esfera */
+                    vector.x = temp.x * norma;
+                    vector.y = temp.y * norma;
+                    vector.z = 0.0;
+                } else { /* e.o.c. está dentro */
+                    /*
+                     * Retorna un vector, un punto dentro la esfera 
+                     * z = sqrt(radio^cuadrado - (x^2 + y^2))
+                     */
+                    vector.x = temp.x;
+                    vector.y = temp.y;
+                    vector.z = Math.sqrt(1.0 - longitud2);
+                }
+            }
+
+            /* Obtiene el vector U */
+            primerPunto(x, y) {
+                this.obtieneVector(this.U, x, y);
+            }
+
+            /* Obtiene el Cuaternion de U y V */
+            segundoPunto(x, y) {
+
+                let q = new Cuaternion();
+
+                /* Obtiene el vector V */
+                this.obtieneVector(this.V, x, y);
+
+                /* Retorna el cuaternión equivalente a la rotación. */
+                if (q != null) {
+
+                    /* Calcula la Normal = U x V */
+                    let Normal = this.U.producto_vectorial(this.V);
+
+                    /* Calcula la longitud de la normal */
+                    if (Normal.longitud() > this.Epsilon) { /* si no es cero */
+                        q.x = Normal.x;
+                        q.y = Normal.y;
+                        q.z = Normal.z;
+                        /* w  = (theta / 2), donde theta es el ángulo de rotación */
+                        q.w = this.U.producto_escalar(this.V);
+                    } else { /* si es cero */
+                        /* U y V coinciden */
+                        q.x = q.y = q.z = q.w = 0.0;
+                    }
+                }
+                return q;
+            }
+        }
+
+        /***************************************************************************/
+        /* Cuaternion: Realiza las operaciones de los cuaterniones.                */
+        /***************************************************************************/
+
+        class Cuaternion {
+
+            /**
+             * Construye un nuevo Cuaternion.
+             */
+            constructor(w, x, y, z) {
+                this.w = w;
+                this.x = x;
+                this.y = y;
+                this.z = z;
+            }
+
+            inicializa(w, v) {
+                this.w = w;
+                this.x = v.x;
+                this.y = v.y;
+                this.z = v.z;
+            }
+
+            // norma^2 = w^2 + x^2 + y^2 + z^2
+            norma2() {
+                return (this.w * this.w + this.x * this.x + this.y * this.y + this.z * this.z);
+            }
+
+            // Conjugado
+            conjugado() {
+                x = -this.x;
+                y = -this.y;
+                z = -this.z;
+                return this;
+            }
+
+            // Cuaternion q = Cuaternion a . Cuaternion b
+            multiplica(a, b) {
+                let q = new Cuaternion(0, 0, 0, 0);
+                q.w = a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z;
+                q.x = a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y;
+                q.y = a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x;
+                q.z = a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w;
+                return q;
+            }
+
+            // Cuaternion q = Cuaternion a . b
+            multiplica_escalar(a, b) {
+                let q = new Cuaternion(0, 0, 0, 0);
+                q.w = a.w * b;
+                q.x = a.x * b;
+                q.y = a.y * b;
+                q.z = a.z * b;
+                return q;
+            }
+
+            // q' = q . p . q^(-1)
+            rota(q, p) {   // q es Cuaternion y p es Vector3
+                let p_homogeneo = new Cuaternion(0, 0, 0, 0);
+                p_homogeneo.inicializa(0, p);
+                let p_prima = this.multiplica(q, this.multiplica(p_homogeneo, q.inverso()));
+                return (new Vector3(p_prima.x, p_prima.y, p_prima.z));
+            }
+
+            // q' = q . p . q*
+            rota1(q, p) {  // q es Cuaternion y p es Vector3
+                let p_homogeneo = new Cuaternion(0, 0, 0, 0);
+                p_homogeneo.inicializa(0, p);
+                let p_prima = this.multiplica(q, this.multiplica(p_homogeneo, q.conjugado()));
+                return (new Vector3(p_prima.x, p_prima.y, p_prima.z));
+            }
+
+            // q = q^(-1)
+            inverso() {
+                let q = new Cuaternion(0, 0, 0, 0);
+                // normal^2 = a . b
+                let n = this.norma2();
+                if (n <= 1e-8)
+                    document.write("INVERSO: Error");
+                q = multiplica_escalar(new Cuaternion(this.w, -this.x, -this.y, -this.z), 1 / n);
+                return q;
+            }
+
+            /* Convierte el cuaternión a una matriz de rotación */
+            static rota2(a, q) {
+                let d, s;
+                d = (q.x * q.x) + (q.y * q.y) + (q.z * q.z) + (q.w * q.w);
+                s = (d > 0.0) ? (2.0 / d) : 0.0;
+                a[0] = 1.0 - (q.y * q.y + q.z * q.z) * s; a[4] = (q.x * q.y - q.w * q.z) * s; a[8] = (q.x * q.z + q.w * q.y) * s; a[12] = 0;
+                a[1] = (q.x * q.y + q.w * q.z) * s; a[5] = 1.0 - (q.x * q.x + q.z * q.z) * s; a[9] = (q.y * q.z - q.w * q.x) * s; a[13] = 0;
+                a[2] = (q.x * q.z - q.w * q.y) * s; a[6] = (q.y * q.z + q.w * q.x) * s; a[10] = 1.0 - (q.x * q.x + q.y * q.y) * s; a[14] = 0;
+                a[3] = 0; a[7] = 0; a[11] = 0; a[15] = 1;
+            }
+
+            toString() {
+                return "Cuaternion [w=" + this.w + ", x=" + this.x + ", y=" + this.y + ", z=" + this.z + "]";
+            }
+        }
+        /***********************************************************************************/
+        /* Se define la geometría y se almacenan en los buffers de memoria y se renderiza. */
+        /***********************************************************************************/
+
+        class Grupo {
+            constructor() {
+                this.nombre = "si_falta";       /* Nombre del grupo */
+                this.triangulos = new Array();  /* Arreglo de índice de triangulos */
+                this.material = 0;              /* Indice del color del material del grupo */
+            }
+            setNombre(nombre) {
+                this.nombre = nombre;
+            }
+            getNombre() {
+                return this.nombre;
+            }
+            adiTriangulo(t) {
+                this.triangulos.push(t);
+            }
+            getTriangulo(indice) {
+                return this.triangulos[indice];
+            }
+            getNumTriangulos() {
+                return this.triangulos.length;
+            }
+            setMaterial(material) {
+                this.material = material;
+            }
+            getMaterial() {
+                return this.material;
+            }
+            toString() {
+                return this.nombre +
+                    "<br> triangulos: " + this.triangulos +
+                    "<br> material  : " + this.material;
+            }
+        }
+
+        class Material {
+            constructor() {
+                this.nombre = "si_falta";    /* Nombre del material */
+                this.ambiente = [0.2, 0.2, 0.2]; /* Arreglo del color ambiente */
+                this.difuso = [0.8, 0.8, 0.8]; /* Arreglo del color difuso */
+                this.especular = [0.0, 0.0, 0.0]; /* Arreglo del color especular */
+                this.brillo = 0;             /* Exponente del brillo */
+            }
+            setNombre(nombre) {
+                this.nombre = nombre;
+            }
+            getNombre() {
+                return this.nombre;
+            }
+            setAmbiente(ambiente) {
+                this.ambiente = ambiente;
+            }
+            getAmbiente() {
+                return this.ambiente;
+            }
+            setDifuso(difuso) {
+                this.difuso = difuso;
+            }
+            getDifuso() {
+                return this.difuso;
+            }
+            setEspecular(especular) {
+                this.especular = especular;
+            }
+            getEspecular() {
+                return this.especular;
+            }
+            setBrillo(brillo) {
+                this.brillo = brillo;
+            }
+            getBrillo() {
+                return this.brillo;
+            }
+            toString() {
+                return this.nombre +
+                    "<br> Ka: " + this.ambiente +
+                    "<br> Kd: " + this.difuso +
+                    "<br> Ks: " + this.especular +
+                    "<br> Ns: " + this.brillo;
+            }
+        }
+
+        class Cadena {
+            constructor(cadena) {
+                this.cadena = cadena;
+                this.indice = 0;
+            }
+            esDelimitador(c) {
+                return (
+                    c == ' ' ||
+                    c == '\t' ||
+                    c == '(' ||
+                    c == ')' ||
+                    c == '"' ||
+                    c == "'"
+                );
+            }
+            saltaDelimitadores() {
+                let n = this.cadena.length;
+                while (this.indice < n &&
+                    this.esDelimitador(this.cadena.charAt(this.indice))) {
+                    this.indice++;
+                }
+            };
+            obtLongPalabra(inicio) {
+                var i = inicio;
+                while (i < this.cadena.length &&
+                    !this.esDelimitador(this.cadena.charAt(i))) {
+                    i++;
+                }
+                return i - inicio;
+            };
+            getToken() {
+                var n, subcadena;
+                this.saltaDelimitadores();
+                n = this.obtLongPalabra(this.indice);
+                if (n === 0) {
+                    return null;
+                }
+                subcadena = this.cadena.substr(this.indice, n);
+                this.indice = this.indice + (n + 1);
+                return subcadena.trim();
+            }
+            getInt() {
+                var token = this.getToken();
+                if (token) {
+                    return parseInt(token, 10);
+                }
+                return null;
+            }
+            getFloat() {
+                var token = this.getToken();
+                if (token) {
+                    return parseFloat(token);
+                }
+                return null;
+            }
+        }
+
+        class Objeto3D {
+            constructor(gl, nombreArchivo, contenidoArchivoOpcional) {
+                // Inicializar propiedades
+                this.gl = gl;
+                this.grupos = [];
+                this.materiales = [];
+                this.vertices = [];
+                this.normales = [];
+                this.indices = [];
+                this.indiceBuffer = gl.createBuffer();
+                this.verticeBuffer = gl.createBuffer();
+                this.normalBuffer = gl.createBuffer();
+
+                // Determinar la fuente del archivo (remoto o local)
+                let datos_obj = contenidoArchivoOpcional || this.leeArchivo(nombreArchivo);
+                if (!datos_obj) {
+                    console.error("No se pudo cargar el archivo del objeto.");
+                    return;
+                }
+
+                const rutaBase = nombreArchivo.substring(0, nombreArchivo.lastIndexOf('/') + 1);
+                this.parsearOBJ(datos_obj, rutaBase);
+                this.prepararBuffers();
+            }
+
+            parsearOBJ(datos_obj, rutaBase) {
+                const lineas = datos_obj.split("\n");
+
+                let vertices_tmp = [];
+                let normales_tmp = [];
+                let normales_calculadas = []; // Para acumular normales
+                let indiceDeGrupo = -1;
+
+                // --- Primera pasada: Leer todos los datos ---
+                for (const linea of lineas) {
+                    const pc = new Cadena(linea);
+                    const token = pc.getToken();
+                    if (!token || token === '#') continue;
+
+                    switch (token) {
+                        case 'mtllib':
+                            this.lee_datos_archivo_mtl(rutaBase + pc.getToken());
+                            break;
+                        case 'v':
+                            const x = pc.getFloat();
+                            const y = pc.getFloat();
+                            const z = pc.getFloat();
+                            vertices_tmp.push(x, y, z);
+                            normales_calculadas.push(new Vector3(0, 0, 0)); // Inicializar normal para este vértice
+                            break;
+                        case 'vn':
+                            normales_tmp.push(pc.getFloat(), pc.getFloat(), pc.getFloat());
+                            break;
+                        case 'g':
+                        case 'group':
+                            const nombreGrupo = pc.getToken() || 'default';
+                            let grupoExistente = this.grupos.find(g => g.getNombre() === nombreGrupo);
+                            if (!grupoExistente) {
+                                const grupo = new Grupo();
+                                grupo.setNombre(nombreGrupo);
+                                this.grupos.push(grupo);
+                                indiceDeGrupo = this.grupos.length - 1;
+                            } else {
+                                indiceDeGrupo = this.grupos.indexOf(grupoExistente);
+                            }
+                            break;
+                        case 'usemtl':
+                            if (indiceDeGrupo === -1) { // Si no hay grupo, crear uno
+                                const grupo = new Grupo();
+                                grupo.setNombre('default_mtl');
+                                this.grupos.push(grupo);
+                                indiceDeGrupo = this.grupos.length - 1;
+                            }
+                            this.grupos[indiceDeGrupo].setMaterial(this.buscaMaterial(pc.getToken()));
+                            break;
+                        case 'f':
+                            let verticesCara = [];
+                            while (true) {
+                                const v_token = pc.getToken();
+                                if (!v_token) break;
+                                verticesCara.push(v_token);
+                            }
+
+                            // Triangular la cara (funciona para caras de más de 3 vértices)
+                            for (let i = 1; i < verticesCara.length - 1; i++) {
+                                const v0_str = verticesCara[0];
+                                const v1_str = verticesCara[i];
+                                const v2_str = verticesCara[i + 1];
+
+                                [v0_str, v1_str, v2_str].forEach(v_str => {
+                                    const indices = v_str.split('/'); // Formato v/vt/vn
+                                    const idx_v = parseInt(indices[0], 10) - 1;
+                                    const idx_vn = indices[2] ? parseInt(indices[2], 10) - 1 : null;
+                                    this.indices.push({ v: idx_v, vn: idx_vn });
+                                });
+
+                                // Acumular normales si el OBJ no las tiene
+                                if (normales_tmp.length === 0) {
+                                    const v0_idx = parseInt(v0_str.split('/')[0], 10) - 1;
+                                    const v1_idx = parseInt(v1_str.split('/')[0], 10) - 1;
+                                    const v2_idx = parseInt(v2_str.split('/')[0], 10) - 1;
+
+                                    const p0 = new Vector3(vertices_tmp[v0_idx * 3], vertices_tmp[v0_idx * 3 + 1], vertices_tmp[v0_idx * 3 + 2]);
+                                    const p1 = new Vector3(vertices_tmp[v1_idx * 3], vertices_tmp[v1_idx * 3 + 1], vertices_tmp[v1_idx * 3 + 2]);
+                                    const p2 = new Vector3(vertices_tmp[v2_idx * 3], vertices_tmp[v2_idx * 3 + 1], vertices_tmp[v2_idx * 3 + 2]);
+
+                                    const normalCara = new Vector3().normal(p0, p1, p2);
+
+                                    normales_calculadas[v0_idx] = normales_calculadas[v0_idx].mas(normalCara);
+                                    normales_calculadas[v1_idx] = normales_calculadas[v1_idx].mas(normalCara);
+                                    normales_calculadas[v2_idx] = normales_calculadas[v2_idx].mas(normalCara);
+                                }
+
+                                if (indiceDeGrupo !== -1) {
+                                    this.grupos[indiceDeGrupo].adiTriangulo(this.indices.length / 3 - 1);
+                                }
+                            }
+                            break;
+                    }
+                }
+
+                
+                let min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+                for (let i = 0; i < vertices_tmp.length; i += 3) {
+                    for (let j = 0; j < 3; j++) {
+                        min[j] = Math.min(min[j], vertices_tmp[i + j]);
+                        max[j] = Math.max(max[j], vertices_tmp[i + j]);
+                    }
+                }
+
+                const centro = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
+                const tam = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
+                const escala = 2.0 / tam;
+
+                let vertices_finales = [];
+                let normales_finales = [];
+
+                this.indices.forEach(idx_comp => {
+                    const v_idx = idx_comp.v;
+                    vertices_finales.push(
+                        (vertices_tmp[v_idx * 3 + 0] - centro[0]) * escala,
+                        (vertices_tmp[v_idx * 3 + 1] - centro[1]) * escala,
+                        (vertices_tmp[v_idx * 3 + 2] - centro[2]) * escala
+                    );
+
+                    if (normales_tmp.length > 0) { 
+                        const vn_idx = idx_comp.vn;
+                        normales_finales.push(normales_tmp[vn_idx * 3 + 0], normales_tmp[vn_idx * 3 + 1], normales_tmp[vn_idx * 3 + 2]);
+                    } else { 
+                        const n = normales_calculadas[v_idx];
+                        n.normaliza();
+                        normales_finales.push(n.x, n.y, n.z);
+                    }
+                });
+
+                this.vertices = new Float32Array(vertices_finales);
+                this.normales = new Float32Array(normales_finales);
+
+                // El array de índices ahora solo necesita los números de 0 a N-1
+                this.indices = new Uint16Array(this.vertices.length / 3);
+                for (let i = 0; i < this.indices.length; i++) {
+                    this.indices[i] = i;
+                }
+            }
+
+            prepararBuffers() {
+                this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.verticeBuffer);
+                this.gl.bufferData(this.gl.ARRAY_BUFFER, this.vertices, this.gl.STATIC_DRAW);
+
+                this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.normalBuffer);
+                this.gl.bufferData(this.gl.ARRAY_BUFFER, this.normales, this.gl.STATIC_DRAW);
+            }
+
+            dibuja(gl) {
+                // Enlazar vértices
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.verticeBuffer);
+                gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(0);
+
+                // Enlazar normales
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+                gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(1);
+
+                // Dibujar por grupos de materiales
+                for (const grupo of this.grupos) {
+                    const numTriangulos = grupo.getNumTriangulos();
+                    if (numTriangulos === 0) continue;
+
+                    const mat = this.materiales[grupo.getMaterial()];
+                    if (mat) {
+                        gl.uniform3fv(u_ka, mat.getAmbiente());
+                        gl.uniform3fv(u_kd, mat.getDifuso());
+                        gl.uniform3fv(u_ks, mat.getEspecular());
+                        gl.uniform1f(u_brillo, mat.getBrillo());
+                    }
+
+                    const indicesGrupo = [];
+                    for (let j = 0; j < numTriangulos; j++) {
+                        const indiceTriangulo = grupo.getTriangulo(j) * 3;
+                        indicesGrupo.push(this.indices[indiceTriangulo], this.indices[indiceTriangulo + 1], this.indices[indiceTriangulo + 2]);
+                    }
+
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indiceBuffer);
+                    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indicesGrupo), gl.STATIC_DRAW);
+                    gl.drawElements(gl.TRIANGLES, indicesGrupo.length, gl.UNSIGNED_SHORT, 0);
+                }
+            }
+
+            leeArchivo(nombreArchivo) {
+                var byteArray = [];
+                var request = new XMLHttpRequest();
+                request.onreadystatechange = function () {
+                    if (request.readyState === 4 && request.status !== 404) {
+                        byteArray = request.responseText
+                    }
+                }
+                request.open('GET', nombreArchivo, false); // Crea una solicitud para abrir el archivo
+                request.send(null);                        // Enviando la solicitud
+                return byteArray;
+            }
+
+            /* Lee los datos de un archivo .MTL (archivo de los colores de los materiales) */
+            lee_datos_archivo_mtl(nombreArchivoMTL) {
+
+                let datos_mtl = this.leeArchivo( nombreArchivoMTL);
+
+                /* Divide por lineas */
+                let lineas = datos_mtl.split('\n');
+
+                let token;
+                for (let i = 0; i < lineas.length; i++) {
+                    let cad = new Cadena(lineas[i]); // Inicia el procesamiento de cadenas 
+                    token = cad.getToken();
+                    if (token != null) {
+                        switch (token) {
+                            case '#':
+                                continue;
+                            case 'newmtl':  /* nombre del material */
+                                let nombreMaterial = cad.getToken();
+                                let material = new Material();
+                                material.setNombre(nombreMaterial);
+                                this.materiales.push(material);
+                                break;
+                            case 'Ka':      /* ambiente */
+                                let ambiente = new Array(3);
+                                ambiente[0] = cad.getFloat();
+                                ambiente[1] = cad.getFloat();
+                                ambiente[2] = cad.getFloat();
+                                this.materiales[this.materiales.length - 1].setAmbiente(ambiente);
+                                break;
+                            case 'Kd':      /* difuso */
+                                var difuso = new Array(3);
+                                difuso[0] = cad.getFloat();
+                                difuso[1] = cad.getFloat();
+                                difuso[2] = cad.getFloat();
+                                this.materiales[this.materiales.length - 1].setDifuso(difuso);
+                                break;
+                            case 'Ks':      /* especular */
+                                var especular = new Array(3);
+                                especular[0] = cad.getFloat();
+                                especular[1] = cad.getFloat();
+                                especular[2] = cad.getFloat();
+                                this.materiales[this.materiales.length - 1].setEspecular(especular);
+                                break;
+                            case 'Ns':      /* brillo */
+                                var brillo = cad.getFloat();
+                                this.materiales[this.materiales.length - 1].setBrillo(brillo);
+                                break;
+                        }
+                    }
+                }
+            }
+
+            /* Busca el grupo */
+            buscaGrupo(nombre) {
+                for (let i = 0; i < this.grupos.length; i++)
+                    if (nombre == this.grupos[i].getNombre())
+                        return i;
+                return -1;
+            }
+
+            /* Busca el Material */
+            buscaMaterial(nombre) {
+                for (let i = 0; i < this.materiales.length; i++)
+                    if (nombre == this.materiales[i].getNombre())
+                        return i;
+                return -1;
+            }
+
+            /* Busca el Material que se encuentra en el grupo */
+            buscaMaterialPorGrupo(indice) {
+                for (let i = 0; i < this.grupos.length; i++)
+                    if (indice == this.grupos[i].getMaterial())
+                        return i;
+                return -1;
+            }
+        }
+
+        class ObjetoMalla {
+            constructor(gl, nombreArchivo) {
+                var lineas, token, x, y, z, a, b;
+                var minX, maxX, minY, maxY, minZ, maxZ;
+                var numVertices;
+
+                /* Las coordenadas cartesianas (x, y, z) */
+                var vertices = [];
+
+                /* Indices */
+                var indices = [];
+
+                /* Número de Vértices */
+                numVertices = 0;
+
+                /* Número de Líneas */
+                this.numLineas = 0;
+
+                /* Lee el archivo .obj */
+                let datos_obj;
+                if (typeof nombreArchivo === "string") {
+                    datos_obj = this.leeArchivo(nombreArchivo); // original
+                } else {
+                    datos_obj = nombreArchivo; // contenido dinámico desde file input
+                }
+
+                /* Divide por lineas */
+                lineas = datos_obj.split("\n");
+
+                minX = Number.MAX_VALUE; maxX = Number.MIN_VALUE;
+                minY = Number.MAX_VALUE; maxY = Number.MIN_VALUE;
+                minZ = Number.MAX_VALUE; maxZ = Number.MIN_VALUE;
+
+                for (let i = 0; i < lineas.length; i++) {
+                    this.inicia(lineas[i]); // Inicia el procesamiento de cadenas
+                    token = this.getToken();
+                    if (token != null) {
+                        switch (token) {
+                            case 'v': /* vértice */
+                                x = this.getFloat();
+                                y = this.getFloat();
+                                z = this.getFloat();
+                                vertices.push(x);
+                                vertices.push(y);
+                                vertices.push(z);
+                                numVertices++;
+
+                                minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                                minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+                                minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+
+                                break;
+                            case 'f': /* cara */
+                                a = this.getInt() - 1;
+                                indices.push(a); // v0
+
+                                this.numLineas++;
+
+                                var tokenEntero = this.getInt();
+
+                                while (tokenEntero != null) {
+                                    b = tokenEntero - 1;
+                                    indices.push(b); // v1
+                                    indices.push(b); // v1
+
+                                    this.numLineas++;
+
+                                    tokenEntero = this.getInt();
+                                }
+
+                                indices.push(a); // v0
+
+                                break;
+                        }
+                    }
+                }
+
+                /* Redimensiona las coordenadas entre [-1,1] */
+                var tam_max = 0, escala;
+                tam_max = Math.max(tam_max, maxX - minX);
+                tam_max = Math.max(tam_max, maxY - minY);
+                tam_max = Math.max(tam_max, maxZ - minZ);
+                escala = 2.0 / tam_max;
+
+                /* Actualiza los vértices */
+                for (var i = 0; i < numVertices * 3; i += 3) {
+                    vertices[i] = escala * (vertices[i] - minX) - 1.0;
+                    vertices[i + 1] = escala * (vertices[i + 1] - minY) - 1.0;
+                    vertices[i + 2] = escala * (vertices[i + 2] - minZ) - 1.0;
+                }
+
+                console.log("Cant. vertices: ", vertices.length / 3);
+                console.log(vertices.length);
+                for (var i = 0; i < vertices.length; i += 3) {
+                    console.log(i + " : " + vertices[i] + "  " + vertices[i + 1] + "  " + vertices[i + 2])
+                }
+
+                console.log(indices.length);
+                for (var i = 0; i < indices.length; i += 6) {
+                    console.log(i + " : " + indices[i] + "  " + indices[i + 1] + "  " + indices[i + 2] + "  " + indices[i + 3] + "  " + indices[i + 4] + "  " + indices[i + 5])
+                }
+
+                this.objetoVAO = gl.createVertexArray();
+                gl.bindVertexArray(this.objetoVAO);
+
+                var codigoVertices = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, codigoVertices);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                gl.enableVertexAttribArray(0);
+                gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+
+                var codigoDeIndices = gl.createBuffer();
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, codigoDeIndices);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+                gl.bindVertexArray(null);
+                gl.bindBuffer(gl.ARRAY_BUFFER, null);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+            }
+
+            dibuja(gl) {
+                gl.bindVertexArray(this.objetoVAO);
+                gl.drawElements(gl.LINES, this.numLineas * 2, gl.UNSIGNED_SHORT, 0);
+                gl.bindVertexArray(null);
+            }
+
+            /* Lee el archivo OBJ */
+            leeArchivo(nombreArchivo) {
+                var byteArray = [];
+                var request = new XMLHttpRequest();
+                request.onreadystatechange = function () {
+                    if (request.readyState === 4 && request.status !== 404) {
+                        byteArray = request.responseText
+                    }
+                }
+                request.open('GET', nombreArchivo, false); // Crea una solicitud para abrir el archivo
+                request.send(null);                        // Enviando la solicitud
+                return byteArray;
+            }
+
+            inicia(cadena) {
+                this.cadena = cadena;
+                this.indice = 0;
+            }
+
+            esDelimitador(c) {
+                return (
+                    c == ' ' ||
+                    c == '\t' ||
+                    c == '(' ||
+                    c == ')' ||
+                    c == '"' ||
+                    c == "'"
+                );
+            }
+
+            saltaDelimitadores() {
+                while (this.indice < this.cadena.length &&
+                    this.esDelimitador(this.cadena.charAt(this.indice))) {
+                    this.indice++;
+                }
+            };
+
+            obtLongPalabra(pos) {
+                var i = pos;
+                while (i < this.cadena.length &&
+                    !this.esDelimitador(this.cadena.charAt(i))) {
+                    i++;
+                }
+                return i - pos;
+            };
+
+            getToken() {
+                var n, subcadena;
+                this.saltaDelimitadores();
+                n = this.obtLongPalabra(this.indice);
+                if (n === 0) {
+                    return null;
+                }
+                subcadena = this.cadena.substr(this.indice, n);
+                this.indice = this.indice + (n + 1);
+                return subcadena.trim();
+            }
+
+            getInt() {
+                var token = this.getToken();
+                if (token) {
+                    return parseInt(token, 10); // Retorna un número entero
+                }
+                return null;
+            }
+
+            getFloat() {
+                var token = this.getToken();
+                if (token) {
+                    return parseFloat(token); // Retorna un número en punto flotante
+                }
+                return null;
+            }
+        }
+
+
+        /***************************************************************************/
+        /* Eventos del Ratón                                                       */
+        /***************************************************************************/
+
+        function mouseDown(event) {
+            var posx = new Number();
+            var posy = new Number();
+
+            /* Obtiene la coordenada dentro de la área mayor */
+            if (event.x != undefined && event.y != undefined) {
+                posx = event.x;
+                posy = event.y;
+            } else {
+                posx = event.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+                posy = event.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+            }
+
+            /* Obtiene la coordenada dentro del canvas */
+            posx = posx - canvas.offsetLeft;
+            posy = posy - canvas.offsetTop;
+
+            if (event.button == 0) { // botón izquierdo
+                Matriz = MatrizRotacion.slice(); /* Copia */
+                arcBall.primerPunto(posx, posy);
+                boton_izq_presionado = true;
+            } else if (event.button == 2) // botón derecho
+                boton_der_presionado = true;
+
+            return false;
+        };
+
+        function mouseUp(e) {
+            boton_izq_presionado = false;
+            boton_der_presionado = false;
+        };
+
+        function mouseMove(event) {
+            var posx = new Number();
+            var posy = new Number();
+
+            /* Obtiene la coordenada dentro de la área mayor */
+            if (event.x != undefined && event.y != undefined) {
+                posx = event.x;
+                posy = event.y;
+            } else {
+                posx = event.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+                posy = event.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+            }
+
+            /* Obtiene la coordenada dentro del canvas */
+            posx = posx - canvas.offsetLeft;
+            posy = posy - canvas.offsetTop;
+
+            if (boton_izq_presionado) {
+                let q = arcBall.segundoPunto(posx, posy);
+                Cuaternion.rota2(MatrizRotacion, q);
+                multiplica(MatrizRotacion, MatrizRotacion, Matriz);
+            } else if (boton_der_presionado) {
+                posx = (posx * 10 / canvas.width) - 5;
+                posy = (10 - posy * 10 / canvas.height) - 5;
+                tx = posx;
+                ty = posy;
+            }
+        };
+
+        function zoom(event) {
+            event.preventDefault();
+            if (event.deltaY > 0) {
+                sx = sx * 0.9;
+                sy = sy * 0.9;
+                sz = sz * 0.9;
+            } else {
+                sx = sx * 1.1;
+                sy = sy * 1.1;
+                sz = sz * 1.1;
+            }
+        };
+
+        var ancho = 0;
+        var alto = 0;
+
+        function dibuja() {
+            if (document.getElementById("ocultamientoDeSuperficies").checked) {
+                /* Habilita el ocultamiento de superficies */
+                gl.enable(gl.DEPTH_TEST);
+            } else {
+                /* Deshabilita el ocultamiento de superficies */
+                gl.disable(gl.DEPTH_TEST);
+            }
+
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            if (document.getElementById('opcion1').checked) {
+                perspective(MatrizProyeccion, 60, ancho / alto, 2, 100);
+            } else if (document.getElementById('opcion2').checked) {
+                frustum(MatrizProyeccion, -1.15 * ancho / alto, 1.15 * ancho / alto, -1.15, 1.15, 2, 100);
+            } else if (document.getElementById('opcion3').checked) {
+                ortho(MatrizProyeccion, -10 * ancho / alto, 10 * ancho / alto, -10, 10, 2, 100);
+            }
+            gl.uniformMatrix4fv(uMatrizProyeccion, false, MatrizProyeccion);
+
+            identidad(MatrizModelo);
+            traslacion(MatrizModelo, tx, ty, 0);
+            escalacion(MatrizModelo, sx, sy, sz);
+            multiplica(MatrizModelo, MatrizModelo, MatrizRotacion);
+
+            gl.uniformMatrix4fv(uMatrizProyeccion, false, MatrizProyeccion);
+            gl.uniformMatrix4fv(uMatrizVista, false, MatrizVista);
+            gl.uniformMatrix4fv(uMatrizModelo, false, MatrizModelo);
+
+            var pLuz = new Array(3);
+            multiplicaMV(pLuz, MatrizVista, posicionLuz); 
+            gl.uniform3fv(uPosicionLuz, pLuz);
+            gl.uniform3fv(uPosicionVista, posicionVista);
+            gl.uniform3f(u_Ia, 0.2, 0.2, 0.2);
+            gl.uniform3f(u_Id, brilloLuz, brilloLuz, brilloLuz);
+            gl.uniform3f(u_Is, brilloLuz, brilloLuz, brilloLuz);
+
+        
+            if (objetoRender) {
+                gl.uniform1i(uIluminacionActiva, iluminacionGeneralActiva);
+                objetoIluminado.dibuja(gl);
+            } else {
+                gl.uniform1i(uIluminacionActiva, false); 
+                objetoMalla.dibuja(gl);
+            }
+
+            requestAnimationFrame(dibuja);
+        }
+        function main() {
+            canvas = document.getElementById("webglcanvas");
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl = canvas.getContext("webgl2");
+            if (!gl) {
+                document.write("WebGL 2.0 no está disponible en tu navegador");
+                return;
+            }
+
+
+            canvas.addEventListener("mousedown", mouseDown, false);
+            canvas.addEventListener("mouseup", mouseUp, false);
+            canvas.addEventListener("mouseout", mouseUp, false);
+            canvas.addEventListener("mousemove", mouseMove, false);
+            canvas.addEventListener("wheel", zoom, { passive: false });
+            document.getElementById("ocultamientoDeSuperficies").onchange = dibuja;
+            document.getElementById("renderStyle").addEventListener("change", function (e) {
+                objetoRender = e.target.value === 'solid';
+            });
+            document.getElementById("iluminacionCheckbox").addEventListener("change", function (e) {
+                iluminacionGeneralActiva = e.target.checked;
+            });
+            document.getElementById("brilloSlider").addEventListener("input", function (e) {
+                brilloLuz = parseFloat(e.target.value);
+            });
+
+            document.getElementById("ocultamientoDeSuperficies").checked = true;
+            document.getElementById("ocultamientoDeSuperficies").onchange = dibuja;
+
+
+            document.getElementById("modoColor").addEventListener("change", function (e) {
+                usarMaterial = (e.target.value === "material");
+            });
+            document.getElementById("fileInput").addEventListener("change", function (e) {
+                let file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function (event) {
+                        var namefile = file.name;
+                        console.log(namefile)
+                        try {
+                            var nuevoC;
+                            var nuevoM;
+                            nuevoC = new Objeto3D(gl, "Modelos/" + namefile);
+                            nuevoM = new ObjetoMalla(gl, "Modelos/" + namefile);
+
+
+                            objetoIluminado = nuevoC;
+                            objetoMalla = nuevoM;
+
+                        } catch (err) {
+                            alert("Error al cargar el modelo: " + err.message);
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            });
+
+
+            document.getElementById("fondoPicker").addEventListener("input", function (e) {
+                let hex = e.target.value;
+                let r = parseInt(hex.substr(1, 2), 16) / 255;
+                let g = parseInt(hex.substr(3, 2), 16) / 255;
+                let b = parseInt(hex.substr(5, 2), 16) / 255;
+                gl.clearColor(r, g, b, 1.0);
+            });
+
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            compilaEnlazaLosShaders();
+
+           
+            objetoIluminado = new Objeto3D(gl, "Modelos/cubo2.obj");
+            objetoMalla = new ObjetoMalla(gl, "Modelos/cubo2.obj");
+
+            arcBall = new ArcBall(gl.canvas.width, gl.canvas.height);
+            gl.useProgram(programaID);
+
+           
+            uMatrizProyeccion = gl.getUniformLocation(programaID, "uMatrizProyeccion");
+            uMatrizVista = gl.getUniformLocation(programaID, "uMatrizVista");
+            uMatrizModelo = gl.getUniformLocation(programaID, "uMatrizModelo");
+            uPosicionVista = gl.getUniformLocation(programaID, "uPosicionVista");
+            uPosicionLuz = gl.getUniformLocation(programaID, "uPosicionLuz");
+            u_Ia = gl.getUniformLocation(programaID, "u_Ia");
+            u_Id = gl.getUniformLocation(programaID, "u_Id");
+            u_Is = gl.getUniformLocation(programaID, "u_Is");
+            u_ka = gl.getUniformLocation(programaID, "u_ka");
+            u_kd = gl.getUniformLocation(programaID, "u_kd");
+            u_ks = gl.getUniformLocation(programaID, "u_ks");
+            u_brillo = gl.getUniformLocation(programaID, "u_brillo");
+            uIluminacionActiva = gl.getUniformLocation(programaID, "uIluminacionActiva");
+
+            var usarMaterial = true;
+
+         
+            ancho = gl.canvas.width;
+            alto = gl.canvas.height;
+            ortho(MatrizProyeccion, -5, 5, -5, 5, -5, 5);
+            gl.uniformMatrix4fv(uMatrizProyeccion, false, MatrizProyeccion);
+            identidad(MatrizVista);
+            traslacion(MatrizVista, 0, 0, -15.0);
+
+            identidad(MatrizRotacion);
+            gl.enable(gl.DEPTH_TEST);
+            gl.clearColor(0.2, 0.18, 0.17, 1.0);
+
+            dibuja();
+        }
+        window.onload = main;
+    </script>
+</body>
+
+</html>
