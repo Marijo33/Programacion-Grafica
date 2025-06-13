@@ -1,0 +1,1488 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>Objeto Color en WebGL 2.0 (v1)</title>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8">
+
+    <style>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            overflow: hidden;
+
+            display: block;
+
+        }
+
+        #gui {
+
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        #menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 250px;
+            height: 100%;
+            background-color: #282c34;
+            border-right: 1px solid #3a3f47;
+            padding: 15px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            z-index: 10;
+            overflow-y: auto;
+            box-shadow: 2px 0 15px rgba(0, 0, 0, 0.4);
+            color: #e0e0e0;
+        }
+
+        #menu h3 {
+            color: #61afef;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.6em;
+            border-bottom: 1px solid #4a505b;
+            padding-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #menu h2 {
+            color: #98c379;
+            margin-top: 25px;
+            margin-bottom: 12px;
+            font-size: 1.2em;
+            border-bottom: 1px solid #3a3f47;
+            padding-bottom: 6px;
+        }
+
+        #menu label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #b0b0b0;
+        }
+
+        #menu input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #5a606a;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 0.95em;
+            background-color: #3e4451;
+            color: #e0e0e0;
+        }
+
+        #menu input[type="color"] {
+            height: 40px;
+            width: 100%;
+            border: 1px solid #5a606a;
+            border-radius: 5px;
+            background-color: #3e4451;
+        }
+
+
+
+        #menu button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #61afef;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s;
+        }
+
+        #menu button:hover {
+            background-color: #4ea1db;
+        }
+
+        #menu p {
+            margin-bottom: 10px;
+            color: #b0b0b0;
+            font-weight: bold;
+        }
+
+        #content {
+            margin-left: 250px;
+            /* deja espacio para el menú lateral */
+            height: 100%;
+        }
+
+        #content {
+            margin-left: 250px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <div id="content">
+
+
+
+        <div id="canvas-holder">
+            <canvas id="webglcanvas" style="border: none;"></canvas>
+
+        </div>
+        <div id="menu">
+            <h3>Opciones</h3>
+
+            <label for="input-n">Dimensión (N x N):</label>
+            <input type="number" id="input-n" value="20" min="5" max="100" step="1">
+
+            <label for="input-densidad">Densidad (0 - 1):</label>
+            <input type="number" id="input-densidad" value="0.7" min="0" max="1" step="0.01">
+
+            <label for="input-proporcion">Proporción tipo A (0 - 1):</label>
+            <input type="number" id="input-proporcion" value="0.5" min="0" max="1" step="0.01">
+
+            <label for="input-tolerancia">Tolerancia (0 - 1):</label>
+            <input type="number" id="input-tolerancia" value="0.3" min="0" max="1" step="0.01">
+
+            <label for="input-vel">Velocidad (segundos):</label>
+            <input type="number" id="input-vel" value="0.5" min="0" max="5" step="0.01">
+
+            <label for="fondoPicker">Color de fondo:</label>
+            <input type="color" id="fondoPicker" value="#1e2127"><br>
+
+            <h2>Estado</h2>
+            <p>Movidos en esta ronda: <span id="estado-movidos">0</span></p>
+            <p>Satisfacción: <span id="estado-satisfaccion">100%</span></p>
+            <p>Estado del sistema: <span id="estado-sistema">Listo</span></p>
+
+            <button onclick="aplicarConfiguracion()">Aplicar configuración</button>
+            <button onclick="iniciarSimulacion()">Iniciar simulación</button>
+            <button onclick="reiniciar()">Reiniciar</button>
+
+        </div>
+
+
+    </div>
+
+    <!--
+        /***************************************************************************/
+        /* Se definen los códigos shaders.                                         */
+        /***************************************************************************/
+      -->
+    <script id="vs" type="vertex">
+        #version 300 es
+        precision mediump float;
+        uniform mat4 uMatrizProyeccion;
+        uniform mat4 uMatrizVista;        
+        uniform mat4 uMatrizModelo;
+        layout(location = 0) in vec3 aVertices;
+        void main() {
+          gl_Position = uMatrizProyeccion * uMatrizVista * uMatrizModelo * vec4(aVertices, 1.0);
+        }
+      </script>
+
+    <script id="fs" type="fragment">
+        #version 300 es
+        precision highp float;
+        uniform vec4 uColor;
+        out vec4 color;
+        void main() {
+            color = uColor;
+        }
+      </script>
+
+    <script>
+        "use strict";
+        var canvas;
+
+        /* Variables globales */
+        var programaID;
+        var gl;
+
+        //Objetos
+        var piso;
+        var cubo3;
+        var objTipoA;
+        var objTipoB;
+
+        //variables para simulacion
+        var N = 20;
+        var densidad = 0.7;
+        var proporcionTipos = 0.5;
+        var tolerancia = 0.3;
+        var Velocidad = 0.5;
+        // valores --> 0: vacío, 1: tipo A, 2: tipo B
+        var grid = [];
+        var celdasVacias = [];
+
+        var simulacionEnMarcha = false;
+        var intervaloSchelling;
+
+        /* Variables Uniformes */
+        var uColor;
+        var uMatrizProyeccion;
+        var uMatrizVista;
+        var uMatrizModelo;
+
+        /* Matrices */
+        var MatrizProyeccion = new Array(16);
+        var MatrizVista = new Array(16);
+        var MatrizModelo = new Array(16);
+
+        /* Para la interacción */
+        var tx = 0, ty = 0;
+        var sx = 1, sy = 1, sz = 1;
+        var MatrizRotacion = new Array(16);
+        var Matriz = new Array(16);
+        var boton_izq_presionado = false;
+        var boton_der_presionado = false;
+        var arcBall;
+
+
+        /***************************************************************************/
+        /* Se crean, compilan y enlazan los programas Shader                       */
+        /***************************************************************************/
+        function compilaEnlazaLosShaders() {
+
+            /* Se compila el shader de vertice */
+            var shaderDeVertice = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(shaderDeVertice, document.getElementById("vs").text.trim());
+            gl.compileShader(shaderDeVertice);
+            if (!gl.getShaderParameter(shaderDeVertice, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shaderDeVertice));
+            }
+
+            /* Se compila el shader de fragmento */
+            var shaderDeFragmento = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(shaderDeFragmento, document.getElementById("fs").text.trim());
+            gl.compileShader(shaderDeFragmento);
+            if (!gl.getShaderParameter(shaderDeFragmento, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shaderDeFragmento));
+            }
+
+            /* Se enlaza ambos shader */
+            programaID = gl.createProgram();
+            gl.attachShader(programaID, shaderDeVertice);
+            gl.attachShader(programaID, shaderDeFragmento);
+            gl.linkProgram(programaID);
+            if (!gl.getProgramParameter(programaID, gl.LINK_STATUS)) {
+                console.error(gl.getProgramInfoLog(programaID));
+            }
+
+            /* Se instala el programa de shaders para utilizarlo */
+            gl.useProgram(programaID);
+        }
+
+        /***************************************************************************/
+        /* Transformaciones mediante matrices                                      */
+        /***************************************************************************/
+
+        /* Convierte de grados a radianes */
+        function toRadians(grados) {
+            return grados * Math.PI / 180;
+        };
+
+        /* Matriz Identidad */
+        function identidad(r) {
+            r[0] = 1; r[4] = 0; r[8] = 0; r[12] = 0;
+            r[1] = 0; r[5] = 1; r[9] = 0; r[13] = 0;
+            r[2] = 0; r[6] = 0; r[10] = 1; r[14] = 0;
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+        }
+
+        /* Traslación - glTranslatef */
+        function traslacion(matriz, tx, ty, tz) {
+            var r = new Array(16);
+            r[0] = 1; r[4] = 0; r[8] = 0; r[12] = tx;
+            r[1] = 0; r[5] = 1; r[9] = 0; r[13] = ty;
+            r[2] = 0; r[6] = 0; r[10] = 1; r[14] = tz;
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+            multiplica(matriz, matriz, r);
+        }
+
+        /* Escalación - glScalef */
+        function escalacion(matriz, sx, sy, sz) {
+            var r = new Array(16);
+            r[0] = sx; r[4] = 0; r[8] = 0; r[12] = 0;
+            r[1] = 0; r[5] = sy; r[9] = 0; r[13] = 0;
+            r[2] = 0; r[6] = 0; r[10] = sz; r[14] = 0;
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+            multiplica(matriz, matriz, r);
+        }
+
+        /* Rotación sobre X - glRotatef */
+        function rotacionX(matriz, theta) {
+            let r = new Array(16);
+            var c = Math.cos(toRadians(theta));
+            var s = Math.sin(toRadians(theta));
+            r[0] = 1; r[4] = 0; r[8] = 0; r[12] = 0;
+            r[1] = 0; r[5] = c; r[9] = -s; r[13] = 0;
+            r[2] = 0; r[6] = s; r[10] = c; r[14] = 0;
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+            multiplica(matriz, matriz, r);
+        }
+
+        /* Rotación sobre Y - glRotatef */
+        function rotacionY(matriz, theta) {
+            let r = new Array(16);
+            var c = Math.cos(toRadians(theta));
+            var s = Math.sin(toRadians(theta));
+            r[0] = c; r[4] = 0; r[8] = s; r[12] = 0;
+            r[1] = 0; r[5] = 1; r[9] = 0; r[13] = 0;
+            r[2] = -s; r[6] = 0; r[10] = c; r[14] = 0;
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+            multiplica(matriz, matriz, r);
+        }
+
+        /* Rotación sobre Z - glRotatef */
+        function rotacionZ(matriz, theta) {
+            let r = new Array(16);
+            var c = Math.cos(toRadians(theta));
+            var s = Math.sin(toRadians(theta));
+            r[0] = c; r[4] = -s; r[8] = 0; r[12] = 0;
+            r[1] = s; r[5] = c; r[9] = 0; r[13] = 0;
+            r[2] = 0; r[6] = 0; r[10] = 1; r[14] = 0;
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+            multiplica(matriz, matriz, r);
+        }
+
+        /* Proyección Paralela - glOrtho */
+        function ortho(r, izq, der, abj, arr, cerca, lejos) {
+            r[0] = 2 / (der - izq); r[4] = 0; r[8] = 0; r[12] = -(der + izq) / (der - izq);
+            r[1] = 0; r[5] = 2 / (arr - abj); r[9] = 0; r[13] = -(arr + abj) / (arr - abj);
+            r[2] = 0; r[6] = 0; r[10] = -2 / (lejos - cerca); r[14] = -(lejos + cerca) / (lejos - cerca);
+            r[3] = 0; r[7] = 0; r[11] = 0; r[15] = 1;
+        }
+
+        /* Proyección Perspectiva - glFrustum */
+        function frustum(r, izq, der, abj, arr, cerca, lejos) {
+            r[0] = 2 * cerca / (der - izq); r[4] = 0; r[8] = (der + izq) / (der - izq); r[12] = 0;
+            r[1] = 0; r[5] = 2 * cerca / (arr - abj); r[9] = (arr + abj) / (arr - abj); r[13] = 0;
+            r[2] = 0; r[6] = 0; r[10] = -(lejos + cerca) / (lejos - cerca); r[14] = -2 * lejos * cerca / (lejos - cerca);
+            r[3] = 0; r[7] = 0; r[11] = -1; r[15] = 0;
+        }
+
+        /* Proyección Perspectiva - gluPerspective */
+        function perspective(r, fovy, aspecto, cerca, lejos) {
+            var ang = fovy * 0.5;
+            var f = (Math.abs(Math.sin(toRadians(ang))) < 1e-8 ? 0 : 1) / Math.tan(toRadians(ang));
+            r[0] = f / aspecto; r[4] = 0; r[8] = 0; r[12] = 0;
+            r[1] = 0; r[5] = f; r[9] = 0; r[13] = 0;
+            r[2] = 0; r[6] = 0; r[10] = -(lejos + cerca) / (lejos - cerca); r[14] = -2.0 * lejos * cerca / (lejos - cerca);
+            r[3] = 0; r[7] = 0; r[11] = - 1.0; r[15] = 0;
+        }
+
+        /* Multiplicación de matrices de 4 x 4 */
+        function multiplica(c, a, b) {
+            let r = new Array(16);
+            let i, j, k;
+            for (i = 0; i < 4; i++) {
+                for (j = 0; j < 4; j++) {
+                    let s = 0;
+                    for (k = 0; k < 4; k++)
+                        s = s + a[i + k * 4] * b[k + j * 4];
+                    r[i + j * 4] = s;
+                }
+            }
+            for (i = 0; i < 16; i++)
+                c[i] = r[i];
+        }
+
+        /**/
+        class Vector3 {
+
+            /**
+             * Construye un nuevo Vector.
+             */
+            constructor(x, y, z) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+            }
+
+            /**
+             *                   u = Suma de vectores
+             *  u = v1 + v2     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             *                   u = (v1.x + v2.x, v1.y + v2.y, v1.z + v2.z)
+             */
+            mas(v2) {
+                return (new Vector3(this.x + v2.x, this.y + v2.y, this.z + v2.z));
+            }
+
+            /**
+             *                   u = Resta de vectores
+             *  u = v1 - v2     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             *                   u = (v1.x - v2.x, v1.y - v2.y, v1.z - v2.z)
+             */
+            menos(v2) {
+                return (new Vector3(this.x - v2.x, this.y - v2.y, this.z - v2.z));
+            }
+
+            /**
+             *                      u x v = Producto vectorial o producto cruz
+             * u = (u.x, u.y, u.z) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             * v = (v.x, v.y, v.z)  u x v = (u.y * v.z - u.z * v.y,   
+             *                               u.z * v.x - u.x * v.z,
+             *                               u.x * v.y - u.y * v.x)                  
+             */
+            producto_vectorial(v2) {
+                var r = new Vector3();
+                r.x = (this.y * v2.z) - (this.z * v2.y);
+                r.y = (this.z * v2.x) - (this.x * v2.z);
+                r.z = (this.x * v2.y) - (this.y * v2.x);
+                return r;
+            }
+
+            /**
+             *                      u . v = Producto escalar o producto punto
+             * u = (u.x, u.y, u.z) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             * v = (v.x, v.y, v.z)  u . v = u.x v.x + u.y v.y + u.z v.z
+             *                                          
+             */
+            producto_escalar(v2) {
+                return (this.x * v2.x) + (this.y * v2.y) + (this.z * v2.z);
+            }
+
+            /**
+             *                     |v| = Longitud de un vector o magnitud
+             * v = (x, y, z)    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             *                     |v| = raiz_cuadrada (x^2 + y^2 + z^2) 
+             *                                          
+             */
+            longitud() {
+                return (Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z));
+            }
+
+            /**
+             *        v            u = Vector unitario o de longitud 1
+             *  u  = ---        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             *       |v|           u = Vector normalizado
+             *                     
+             */
+            normaliza() {
+                var l = this.longitud();
+                if (l > 0) {
+                    this.x = this.x / l;
+                    this.y = this.y / l;
+                    this.z = this.z / l;
+                }
+            }
+            /**
+             *    3
+             *     ^
+             *     |
+             *   v |
+             *     |
+             *    1 -------- > 2
+             */
+            normal(v1, v2, v3) {
+                var u = new Vector3(); // vector u
+                var v = new Vector3(); // vector v
+                var n = new Vector3(); // vector n
+
+                /* Calcula los vectores u y v */
+                u = v2.menos(v1);
+                v = v3.menos(v1);
+
+                /* n = u x v */
+                n = u.producto_vectorial(v);
+
+                /* Normaliza */
+                n.normaliza();
+
+                return n;
+            }
+
+            toString() {
+                return "Vector3 [x=" + this.x + ", y=" + this.y + ", z=" + this.z + "]";
+            }
+        }
+
+        /***************************************************************************/
+        /* ArcBall: Obtiene los vectores U y V de la esfera (x^2 + y^2 + z^2 = 1). */
+        /***************************************************************************/
+
+        var Punto2f = function (x, y) {
+            // Atributos publicos
+            this.x = x;
+            this.y = y;
+        }
+
+        class ArcBall {
+
+            /**
+             * Construye un nuevo ArcBall.
+             */
+            constructor(w, h) {
+                this.Epsilon = 1.0e-5;
+                this.U = new Vector3();
+                this.V = new Vector3();
+                this.ajusta(w, h);
+            }
+
+            /* Ajusta el ancho y alto de la ventana */
+            ajusta(w, h) {
+                if (!((w > 1.0) && (h > 1.0)))
+                    document.write("ERROR");
+
+                /* Ajusta el factor para el ancho y alto (2 = [-1..1]) */
+                this.ajustaAncho = 2.0 / (w - 1.0);
+                this.ajustaAlto = 2.0 / (h - 1.0);
+            }
+
+            /* Obtiene el vector dado un punto (x,y) */
+            obtieneVector(vector, x, y) {
+                /* Copia punto */
+                let temp = new Punto2f(x, y);
+
+                /* Ajusta las coordenadas del punto al rango [-1..1] */
+                temp.x = (temp.x * this.ajustaAncho) - 1.0;
+                temp.y = 1.0 - (temp.y * this.ajustaAlto);
+
+                /* Calcula el cuadrado de la longitud del vector */
+                let longitud2 = (temp.x * temp.x) + (temp.y * temp.y);
+
+                /* 
+                 * Considerando que: radio^2 = x^2 + y^2 + z^2
+                 * ¿Cuales son los valores de x, y y z?
+                 * 
+                 * Si el punto está fuera de la esfera... (longitud2 > 1)
+                 */
+
+                if (longitud2 > 1.0) {
+                    /* Calcula un factor de normalización (radio / sqrt(longitud2)) */
+                    let norma = (1.0 / Math.sqrt(longitud2));
+
+                    /* Retorna el vector "normalizado", un punto sobre la esfera */
+                    vector.x = temp.x * norma;
+                    vector.y = temp.y * norma;
+                    vector.z = 0.0;
+                } else { /* e.o.c. está dentro */
+                    /*
+                     * Retorna un vector, un punto dentro la esfera 
+                     * z = sqrt(radio^cuadrado - (x^2 + y^2))
+                     */
+                    vector.x = temp.x;
+                    vector.y = temp.y;
+                    vector.z = Math.sqrt(1.0 - longitud2);
+                }
+            }
+
+            /* Obtiene el vector U */
+            primerPunto(x, y) {
+                this.obtieneVector(this.U, x, y);
+            }
+
+            /* Obtiene el Cuaternion de U y V */
+            segundoPunto(x, y) {
+
+                let q = new Cuaternion();
+
+                /* Obtiene el vector V */
+                this.obtieneVector(this.V, x, y);
+
+                /* Retorna el cuaternión equivalente a la rotación. */
+                if (q != null) {
+
+                    /* Calcula la Normal = U x V */
+                    let Normal = this.U.producto_vectorial(this.V);
+
+                    /* Calcula la longitud de la normal */
+                    if (Normal.longitud() > this.Epsilon) { /* si no es cero */
+                        q.x = Normal.x;
+                        q.y = Normal.y;
+                        q.z = Normal.z;
+                        /* w  = (theta / 2), donde theta es el ángulo de rotación */
+                        q.w = this.U.producto_escalar(this.V);
+                    } else { /* si es cero */
+                        /* U y V coinciden */
+                        q.x = q.y = q.z = q.w = 0.0;
+                    }
+                }
+                return q;
+            }
+        }
+
+        /***************************************************************************/
+        /* Cuaternion: Realiza las operaciones de los cuaterniones.                */
+        /***************************************************************************/
+
+        class Cuaternion {
+
+            /**
+             * Construye un nuevo Cuaternion.
+             */
+            constructor(w, x, y, z) {
+                this.w = w;
+                this.x = x;
+                this.y = y;
+                this.z = z;
+            }
+
+            inicializa(w, v) {
+                this.w = w;
+                this.x = v.x;
+                this.y = v.y;
+                this.z = v.z;
+            }
+
+            // norma^2 = w^2 + x^2 + y^2 + z^2
+            norma2() {
+                return (this.w * this.w + this.x * this.x + this.y * this.y + this.z * this.z);
+            }
+
+            // Conjugado
+            conjugado() {
+                x = -this.x;
+                y = -this.y;
+                z = -this.z;
+                return this;
+            }
+
+            // Cuaternion q = Cuaternion a . Cuaternion b
+            multiplica(a, b) {
+                let q = new Cuaternion(0, 0, 0, 0);
+                q.w = a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z;
+                q.x = a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y;
+                q.y = a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x;
+                q.z = a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w;
+                return q;
+            }
+
+            // Cuaternion q = Cuaternion a . b
+            multiplica_escalar(a, b) {
+                let q = new Cuaternion(0, 0, 0, 0);
+                q.w = a.w * b;
+                q.x = a.x * b;
+                q.y = a.y * b;
+                q.z = a.z * b;
+                return q;
+            }
+
+            // q' = q . p . q^(-1)
+            rota(q, p) {   // q es Cuaternion y p es Vector3
+                let p_homogeneo = new Cuaternion(0, 0, 0, 0);
+                p_homogeneo.inicializa(0, p);
+                let p_prima = this.multiplica(q, this.multiplica(p_homogeneo, q.inverso()));
+                return (new Vector3(p_prima.x, p_prima.y, p_prima.z));
+            }
+
+            // q' = q . p . q*
+            rota1(q, p) {  // q es Cuaternion y p es Vector3
+                let p_homogeneo = new Cuaternion(0, 0, 0, 0);
+                p_homogeneo.inicializa(0, p);
+                let p_prima = this.multiplica(q, this.multiplica(p_homogeneo, q.conjugado()));
+                return (new Vector3(p_prima.x, p_prima.y, p_prima.z));
+            }
+
+            // q = q^(-1)
+            inverso() {
+                let q = new Cuaternion(0, 0, 0, 0);
+                // normal^2 = a . b
+                let n = this.norma2();
+                if (n <= 1e-8)
+                    document.write("INVERSO: Error");
+                q = multiplica_escalar(new Cuaternion(this.w, -this.x, -this.y, -this.z), 1 / n);
+                return q;
+            }
+
+            /* Convierte el cuaternión a una matriz de rotación */
+            static rota2(a, q) {
+                let d, s;
+                d = (q.x * q.x) + (q.y * q.y) + (q.z * q.z) + (q.w * q.w);
+                s = (d > 0.0) ? (2.0 / d) : 0.0;
+                a[0] = 1.0 - (q.y * q.y + q.z * q.z) * s; a[4] = (q.x * q.y - q.w * q.z) * s; a[8] = (q.x * q.z + q.w * q.y) * s; a[12] = 0;
+                a[1] = (q.x * q.y + q.w * q.z) * s; a[5] = 1.0 - (q.x * q.x + q.z * q.z) * s; a[9] = (q.y * q.z - q.w * q.x) * s; a[13] = 0;
+                a[2] = (q.x * q.z - q.w * q.y) * s; a[6] = (q.y * q.z + q.w * q.x) * s; a[10] = 1.0 - (q.x * q.x + q.y * q.y) * s; a[14] = 0;
+                a[3] = 0; a[7] = 0; a[11] = 0; a[15] = 1;
+            }
+
+            toString() {
+                return "Cuaternion [w=" + this.w + ", x=" + this.x + ", y=" + this.y + ", z=" + this.z + "]";
+            }
+        }
+        /***********************************************************************************/
+        /* Se define la geometría y se almacenan en los buffers de memoria y se renderiza. */
+        /***********************************************************************************/
+
+        class Grupo {
+            constructor() {
+                this.nombre = "si_falta";       /* Nombre del grupo */
+                this.triangulos = new Array();  /* Arreglo de índice de triangulos */
+                this.material = 0;              /* Indice del color del material del grupo */
+            }
+            setNombre(nombre) {
+                this.nombre = nombre;
+            }
+            getNombre() {
+                return this.nombre;
+            }
+            adiTriangulo(t) {
+                this.triangulos.push(t);
+            }
+            getTriangulo(indice) {
+                return this.triangulos[indice];
+            }
+            getNumTriangulos() {
+                return this.triangulos.length;
+            }
+            setMaterial(material) {
+                this.material = material;
+            }
+            getMaterial() {
+                return this.material;
+            }
+            toString() {
+                return this.nombre +
+                    "<br> triangulos: " + this.triangulos +
+                    "<br> material  : " + this.material;
+            }
+        }
+
+        class Material {
+            constructor() {
+                this.nombre = "si_falta";    /* Nombre del material */
+                this.ambiente = [0.2, 0.2, 0.2]; /* Arreglo del color ambiente */
+                this.difuso = [0.8, 0.8, 0.8]; /* Arreglo del color difuso */
+                this.especular = [0.0, 0.0, 0.0]; /* Arreglo del color especular */
+                this.brillo = 0;             /* Exponente del brillo */
+            }
+            setNombre(nombre) {
+                this.nombre = nombre;
+            }
+            getNombre() {
+                return this.nombre;
+            }
+            setAmbiente(ambiente) {
+                this.ambiente = ambiente;
+            }
+            getAmbiente() {
+                return this.ambiente;
+            }
+            setDifuso(difuso) {
+                this.difuso = difuso;
+            }
+            getDifuso() {
+                return this.difuso;
+            }
+            setEspecular(especular) {
+                this.especular = especular;
+            }
+            getEspecular() {
+                return this.especular;
+            }
+            setBrillo(brillo) {
+                this.brillo = brillo;
+            }
+            getBrillo() {
+                return this.brillo;
+            }
+            toString() {
+                return this.nombre +
+                    "<br> Ka: " + this.ambiente +
+                    "<br> Kd: " + this.difuso +
+                    "<br> Ks: " + this.especular +
+                    "<br> Ns: " + this.brillo;
+            }
+        }
+
+        class Cadena {
+            constructor(cadena) {
+                this.cadena = cadena;
+                this.indice = 0;
+            }
+            esDelimitador(c) {
+                return (
+                    c == ' ' ||
+                    c == '\t' ||
+                    c == '(' ||
+                    c == ')' ||
+                    c == '"' ||
+                    c == "'"
+                );
+            }
+            saltaDelimitadores() {
+                let n = this.cadena.length;
+                while (this.indice < n &&
+                    this.esDelimitador(this.cadena.charAt(this.indice))) {
+                    this.indice++;
+                }
+            };
+            obtLongPalabra(inicio) {
+                var i = inicio;
+                while (i < this.cadena.length &&
+                    !this.esDelimitador(this.cadena.charAt(i))) {
+                    i++;
+                }
+                return i - inicio;
+            };
+            getToken() {
+                var n, subcadena;
+                this.saltaDelimitadores();
+                n = this.obtLongPalabra(this.indice);
+                if (n === 0) {
+                    return null;
+                }
+                subcadena = this.cadena.substr(this.indice, n);
+                this.indice = this.indice + (n + 1);
+                return subcadena.trim();
+            }
+            getInt() {
+                var token = this.getToken();
+                if (token) {
+                    return parseInt(token, 10);
+                }
+                return null;
+            }
+            getFloat() {
+                var token = this.getToken();
+                if (token) {
+                    return parseFloat(token);
+                }
+                return null;
+            }
+        }
+
+        class Objeto {
+            constructor(gl, nombreArchivo) {
+                var lineas, token, x, y, z, a, b;
+                var minX, maxX, minY, maxY, minZ, maxZ;
+                var numVertices, numTriangulos, indiceDeGrupo;
+                var hayGrupos;
+                this.vertices = [];
+                this.indices = [];
+
+                /* Número de Vértices */
+                numVertices = 0;
+
+                /* Número de Triángulos */
+                numTriangulos = 0;
+
+                /* Arreglo de Grupos */
+                this.grupos = [];
+
+                hayGrupos = false;
+
+                /* Arreglo de los colores de los Materiales */
+                this.materiales = [];
+
+                /* Lee el archivo .obj */
+                let datos_obj = this.leeArchivo(nombreArchivo);
+
+                /* Divide por lineas */
+                lineas = datos_obj.split("\n");
+
+                minX = Number.MAX_VALUE; maxX = Number.MIN_VALUE;
+                minY = Number.MAX_VALUE; maxY = Number.MIN_VALUE;
+                minZ = Number.MAX_VALUE; maxZ = Number.MIN_VALUE;
+
+                for (let i = 0; i < lineas.length; i++) {
+                    let cad = new Cadena(lineas[i]); // Inicia el procesamiento de cadenas
+                    token = cad.getToken();
+                    if (token != null) {
+                        switch (token) {
+                            case '#':
+                                continue;
+                            case 'mtllib': /* nombre del arch. de materiales */
+                                let nombreArchivoMTL = cad.getToken();
+                                this.lee_datos_archivo_mtl(nombreArchivoMTL);
+                                break;
+                            case 'v': /* vértice */
+                                x = cad.getFloat();
+                                y = cad.getFloat();
+                                z = cad.getFloat();
+                                this.vertices.push(x);
+                                this.vertices.push(y);
+                                this.vertices.push(z);
+                                numVertices++;
+                                minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                                minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+                                minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+                                break;
+                            case 'g':
+                            case 'group': /* nombre de grupo */
+                                let nombreGrupo = cad.getToken();
+                                indiceDeGrupo = this.buscaGrupo(nombreGrupo);
+                                if (indiceDeGrupo == -1) {
+                                    /* Agrega a la lista de grupo un nuevo grupo*/
+                                    let grupo = new Grupo();
+                                    grupo.setNombre(nombreGrupo);
+                                    this.grupos.push(grupo);         /* Guarda en el arreglo de grupos */
+                                    indiceDeGrupo = this.grupos.length - 1;
+                                }
+                                hayGrupos = true;
+                                break;
+                            case 'usemtl': /* nombre del material */
+                                let nombreMaterial = cad.getToken();
+                                let indiceDeMaterial = this.buscaMaterial(nombreMaterial);
+                                if (!hayGrupos) { // Si no hay un grupo
+                                    indiceDeGrupo = this.buscaMaterialPorGrupo(indiceDeMaterial);
+                                    if (indiceDeGrupo == -1) {
+                                        /* Agrega a la lista de grupo un nuevo grupo*/
+                                        let grupo = new Grupo();
+                                        grupo.setNombre(nombreMaterial);
+                                        this.grupos.push(grupo);         /* Guarda en el arreglo de grupos */
+                                        indiceDeGrupo = this.grupos.length - 1;
+                                    }
+                                }
+                                /* Asigna al grupo el indice del material */
+                                this.grupos[indiceDeGrupo].setMaterial(indiceDeMaterial);
+                                break;
+                            case 'f': /* cara */
+                                a = cad.getInt() - 1;
+                                this.indices.push(a); // v0
+                                b = cad.getInt() - 1;
+                                this.indices.push(b); // v1
+                                b = cad.getInt() - 1;
+                                this.indices.push(b); // v2
+
+                                /* Asigna al grupo el indice del material */
+                                this.grupos[indiceDeGrupo].adiTriangulo(numTriangulos);
+
+                                numTriangulos++;
+
+                                var tokenEntero = cad.getInt();
+                                while (tokenEntero != null) {
+
+                                    this.indices.push(a);    // v0
+                                    this.indices.push(b);    // v2
+                                    b = tokenEntero - 1;
+                                    this.indices.push(b);    // v3
+
+                                    /* Asigna al grupo el indice del material */
+                                    this.grupos[indiceDeGrupo].adiTriangulo(numTriangulos);
+
+                                    numTriangulos++;
+
+                                    tokenEntero = cad.getInt();
+                                }
+
+                                break;
+                        }
+                    }
+                }
+
+                /* Redimensiona las coordenadas entre [-1,1] */
+                var tam_max = 0, escala;
+                tam_max = Math.max(tam_max, maxX - minX);
+                tam_max = Math.max(tam_max, maxY - minY);
+                tam_max = Math.max(tam_max, maxZ - minZ);
+                escala = 2.0 / tam_max;
+
+                /* Actualiza los vértices */
+                for (let i = 0; i < numVertices * 3; i += 3) {
+                    this.vertices[i] = escala * (this.vertices[i] - minX) - 1.0;
+                    this.vertices[i + 1] = escala * (this.vertices[i + 1] - minY) - 1.0;
+                    this.vertices[i + 2] = escala * (this.vertices[i + 2] - minZ) - 1.0;
+                }
+
+            }
+
+            dibuja(gl) {
+                var numTriangulos, indiceDeMaterial, color, k;
+                for (let i = 0; i < this.grupos.length; i++) {
+
+                    /* Obtiene el número de triángulos del grupo */
+                    numTriangulos = this.grupos[i].getNumTriangulos();
+
+                    if (numTriangulos == 0)
+                        continue;
+
+                    /* Obtiene los indices */
+                    let indAux = new Uint16Array(numTriangulos * 3);
+
+                    for (let j = 0; j < numTriangulos; j++) {
+                        k = j * 3;
+
+                        /* Lee del grupo i el número de triángulo j */
+                        let numTrian = this.grupos[i].getTriangulo(j);
+
+                        indAux[k] = this.indices[numTrian * 3 + 0];
+                        indAux[k + 1] = this.indices[numTrian * 3 + 1];
+                        indAux[k + 2] = this.indices[numTrian * 3 + 2];
+                    }
+
+                    /* Se crea el objeto del arreglo de vértices (VAO) */
+                    //this.objetoVAO = gl.createVertexArray();
+
+                    /* Se activa el objeto */
+                    //gl.bindVertexArray(this.objetoVAO);
+
+                    var codigoVertices = gl.createBuffer();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, codigoVertices);
+                    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
+                    gl.enableVertexAttribArray(0);
+                    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+
+                    this.codigoDeIndices = gl.createBuffer();
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.codigoDeIndices);
+                    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indAux), gl.STATIC_DRAW);
+
+                    indiceDeMaterial = this.grupos[i].getMaterial();
+
+                    /* Lee el color */
+                    //color = this.materiales[indiceDeMaterial].getAmbiente();
+                    color = this.materiales[indiceDeMaterial].getDifuso();
+
+                    gl.uniform4f(uColor, color[0], color[1], color[2], 1);
+                    gl.drawElements(gl.TRIANGLES, numTriangulos * 3, gl.UNSIGNED_SHORT, 0);
+
+                    gl.bindVertexArray(null);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+                }
+            }
+
+            /* Lee el archivo OBJ */
+            leeArchivo(nombreArchivo) {
+                var byteArray = [];
+                var request = new XMLHttpRequest();
+                request.onreadystatechange = function () {
+                    if (request.readyState === 4 && request.status !== 404) {
+                        byteArray = request.responseText
+                    }
+                }
+                request.open('GET', nombreArchivo, false); // Crea una solicitud para abrir el archivo
+                request.send(null);                        // Enviando la solicitud
+                return byteArray;
+            }
+
+            /* Lee los datos de un archivo .MTL (archivo de los colores de los materiales) */
+            lee_datos_archivo_mtl(nombreArchivoMTL) {
+
+                let datos_mtl = this.leeArchivo("Modelos/" + nombreArchivoMTL);
+
+                /* Divide por lineas */
+                let lineas = datos_mtl.split('\n');
+
+                let token;
+                for (let i = 0; i < lineas.length; i++) {
+                    let cad = new Cadena(lineas[i]); // Inicia el procesamiento de cadenas 
+                    token = cad.getToken();
+                    if (token != null) {
+                        switch (token) {
+                            case '#':
+                                continue;
+                            case 'newmtl':  /* nombre del material */
+                                let nombreMaterial = cad.getToken();
+                                let material = new Material();
+                                material.setNombre(nombreMaterial);
+                                this.materiales.push(material);
+                                break;
+                            case 'Ka':      /* ambiente */
+                                let ambiente = new Array(3);
+                                ambiente[0] = cad.getFloat();
+                                ambiente[1] = cad.getFloat();
+                                ambiente[2] = cad.getFloat();
+                                this.materiales[this.materiales.length - 1].setAmbiente(ambiente);
+                                break;
+                            case 'Kd':      /* difuso */
+                                var difuso = new Array(3);
+                                difuso[0] = cad.getFloat();
+                                difuso[1] = cad.getFloat();
+                                difuso[2] = cad.getFloat();
+                                this.materiales[this.materiales.length - 1].setDifuso(difuso);
+                                break;
+                            case 'Ks':      /* especular */
+                                var especular = new Array(3);
+                                especular[0] = cad.getFloat();
+                                especular[1] = cad.getFloat();
+                                especular[2] = cad.getFloat();
+                                this.materiales[this.materiales.length - 1].setEspecular(especular);
+                                break;
+                            case 'Ns':      /* brillo */
+                                var brillo = cad.getFloat();
+                                this.materiales[this.materiales.length - 1].setBrillo(brillo);
+                                break;
+                        }
+                    }
+                }
+            }
+
+            /* Busca el grupo */
+            buscaGrupo(nombre) {
+                for (let i = 0; i < this.grupos.length; i++)
+                    if (nombre == this.grupos[i].getNombre())
+                        return i;
+                return -1;
+            }
+
+            /* Busca el Material */
+            buscaMaterial(nombre) {
+                for (let i = 0; i < this.materiales.length; i++)
+                    if (nombre == this.materiales[i].getNombre())
+                        return i;
+                return -1;
+            }
+
+            /* Busca el Material que se encuentra en el grupo */
+            buscaMaterialPorGrupo(indice) {
+                for (let i = 0; i < this.grupos.length; i++)
+                    if (indice == this.grupos[i].getMaterial())
+                        return i;
+                return -1;
+            }
+        }
+
+
+
+        function inicializarGrilla() {
+            grid = [];
+            celdasVacias = []
+
+            var totalceldas = N * N;
+            var totalAgentes = Math.floor(totalceldas * densidad)
+            var tipoA = Math.floor(totalAgentes * proporcionTipos);
+            var tipoB = totalAgentes - tipoA;
+
+            console.log("a", tipoA);
+            console.log("b", tipoB);
+            console.log("vacion", totalceldas - totalAgentes);
+
+            var a1 = new Array(tipoA).fill(1);
+            var a2 = new Array(tipoB).fill(2);
+            var a3 = new Array(totalceldas - totalAgentes).fill(0)
+            var valores = a1.concat(a2).concat(a3)
+
+
+            // console.log(valores)
+
+
+            valores.sort(() => Math.random() - 0.5);
+            for (var i = 0; i < N; i++) {
+                grid[i] = []
+                for (var j = 0; j < N; j++) {
+                    var valor = valores[i * N + j]
+                    console.log("op: ", i * N + j)
+                    console.log("valor", valor)
+                    grid[i][j] = valor
+
+                    if (valor == 0) {
+                        celdasVacias.push({ x: i, y: j })
+                    }
+                }
+            }
+
+
+        }
+
+        function estaSatisfecho(i, j) {
+            const tipo = grid[i][j];
+            if (tipo === 0) return true; // vacío siempre satisfecho
+
+            let vecinosIguales = 0;
+            let vecinosTotales = 0;
+
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+
+                    if (dx === 0 && dy === 0) continue;
+
+                    let x = i + dx;
+                    let y = j + dy;
+
+                    if (x >= 0 && x < N && y >= 0 && y < N) {
+                        const vecino = grid[x][y];
+                        if (vecino !== 0) {
+                            vecinosTotales++;
+                            if (vecino === tipo) vecinosIguales++;
+                        }
+                    }
+                }
+            }
+
+            if (vecinosTotales === 0) return true;
+
+            var proporcion = (vecinosIguales) / vecinosTotales;
+            return proporcion >= tolerancia;
+        }
+
+
+        function moverAgente(i, j) {
+            if (celdasVacias.length === 0) return;
+
+            const tipo = grid[i][j];
+            const index = Math.floor(Math.random() * celdasVacias.length);
+            const nuevaPos = celdasVacias.splice(index, 1)[0];
+
+            grid[nuevaPos.x][nuevaPos.y] = tipo;
+
+
+            grid[i][j] = 0;
+            celdasVacias.push({ x: i, y: j });
+        }
+
+        function paso() {
+            let movidos = 0;
+
+            let posiciones = [];
+            for (let i = 0; i < N; i++) {
+                for (let j = 0; j < N; j++) {
+                    if (grid[i][j] !== 0) posiciones.push({ x: i, y: j });
+                }
+            }
+            posiciones.sort(() => Math.random() - 0.5);
+
+            for (const pos of posiciones) {
+                if (!estaSatisfecho(pos.x, pos.y)) {
+                    moverAgente(pos.x, pos.y);
+                    movidos++;
+                }
+            }
+            return movidos;
+        }
+        function iniciarSimulacion() {
+            if (simulacionEnMarcha) return;
+
+            simulacionEnMarcha = true;
+            intervaloSchelling = setInterval(() => {
+                const cambios = paso();
+                actualizarEstado(cambios);
+                if (cambios === 0) {
+
+                    clearInterval(intervaloSchelling);
+                    simulacionEnMarcha = false;
+                }
+            }, (Velocidad * 1000));
+        }
+        function reiniciar() {
+            clearInterval(intervaloSchelling);
+            simulacionEnMarcha = false;
+            inicializarGrilla();
+        }
+        function aplicarConfiguracion() {
+            var nuevoN = parseInt(document.getElementById("input-n").value);
+            var nuevaDensidad = parseFloat(document.getElementById("input-densidad").value);
+            var nuevaProporcion = parseFloat(document.getElementById("input-proporcion").value);
+            var nuevaTolerancia = parseFloat(document.getElementById("input-tolerancia").value);
+            var nuevaVelocidad = parseFloat(document.getElementById("input-vel").value);
+
+            if (nuevoN < 5 || nuevoN > 100) {
+                alert("N debe estar entre 5 y 100");
+                return;
+            }
+
+            if (nuevaVelocidad < 0 || nuevaVelocidad > 5) {
+                alert("la velocidad debe estar entre 0 y 5 segundos");
+                return;
+            }
+            if (nuevaDensidad < 0 || nuevaDensidad > 1 ||
+                nuevaProporcion < 0 || nuevaProporcion > 1 ||
+                nuevaTolerancia < 0 || nuevaTolerancia > 1) {
+                alert("Todos los valores deben estar entre 0 y 1");
+                return;
+            }
+
+            N = nuevoN;
+            densidad = nuevaDensidad;
+            proporcionTipos = nuevaProporcion;
+            tolerancia = nuevaTolerancia;
+            Velocidad = nuevaVelocidad;
+
+            inicializarGrilla();
+        }
+        function actualizarEstado(movidos) {
+            document.getElementById("estado-movidos").textContent = movidos;
+
+            let total = 0;
+            let satisfechos = 0;
+
+            for (let i = 0; i < N; i++) {
+                for (let j = 0; j < N; j++) {
+                    if (grid[i][j] !== 0) {
+                        total++;
+                        if (estaSatisfecho(i, j)) satisfechos++;
+                    }
+                }
+            }
+
+            let porcentaje = total === 0 ? 100 : Math.round((satisfechos / total) * 100);
+            document.getElementById("estado-satisfaccion").textContent = porcentaje + "%";
+
+            document.getElementById("estado-sistema").textContent =
+                (movidos === 0) ? "Estable" : "En ejecución";
+        }
+
+
+
+        function mouseDown(event) {
+            var posx = new Number();
+            var posy = new Number();
+
+            /* Obtiene la coordenada dentro de la área mayor */
+            if (event.x != undefined && event.y != undefined) {
+                posx = event.x;
+                posy = event.y;
+            } else {
+                posx = event.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+                posy = event.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+            }
+
+            /* Obtiene la coordenada dentro del canvas */
+            posx = posx - canvas.offsetLeft;
+            posy = posy - canvas.offsetTop;
+
+            if (event.button == 0) { // botón izquierdo
+                Matriz = MatrizRotacion.slice(); /* Copia */
+                arcBall.primerPunto(posx, posy);
+                boton_izq_presionado = true;
+            } else if (event.button == 2) // botón derecho
+                boton_der_presionado = true;
+
+            return false;
+        };
+
+        function mouseUp(e) {
+            boton_izq_presionado = false;
+            boton_der_presionado = false;
+        };
+
+        function mouseMove(event) {
+            var posx = new Number();
+            var posy = new Number();
+
+            /* Obtiene la coordenada dentro de la área mayor */
+            if (event.x != undefined && event.y != undefined) {
+                posx = event.x;
+                posy = event.y;
+            } else {
+                posx = event.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+                posy = event.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+            }
+
+            /* Obtiene la coordenada dentro del canvas */
+            posx = posx - canvas.offsetLeft;
+            posy = posy - canvas.offsetTop;
+
+            if (boton_izq_presionado) {
+                let q = arcBall.segundoPunto(posx, posy);
+                Cuaternion.rota2(MatrizRotacion, q);
+                multiplica(MatrizRotacion, MatrizRotacion, Matriz);
+            } else if (boton_der_presionado) {
+                posx = (posx * 10 / canvas.width) - 5;
+                posy = (10 - posy * 10 / canvas.height) - 5;
+                tx = posx;
+                ty = posy;
+            }
+        };
+
+        function zoom(event) {
+            event.preventDefault();
+            if (event.deltaY > 0) {
+                sx = sx * 0.9;
+                sy = sy * 0.9;
+                sz = sz * 0.9;
+            } else {
+                sx = sx * 1.1;
+                sy = sy * 1.1;
+                sz = sz * 1.1;
+            }
+        };
+
+        var xini = -5;
+        var zini = -5;
+
+        let c = 0;
+        function dibuja() {
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            for (var i = 0; i < N; i++) {
+                for (var j = 0; j < N; j++) {
+                    var tipo = grid[i][j];
+                    var dx = -N / 2 + i;
+                    var dz = -N / 2 + j;
+
+                    identidad(MatrizModelo);
+                    traslacion(MatrizModelo, tx, ty, 0);
+                    escalacion(MatrizModelo, sx, sy, sz);
+                    multiplica(MatrizModelo, MatrizModelo, MatrizRotacion);
+                    traslacion(MatrizModelo, dx, 0, dz)
+                    escalacion(MatrizModelo, 0.4, 0.4, 0.4);
+                    gl.uniformMatrix4fv(uMatrizModelo, false, MatrizModelo);
+
+                    if (tipo == 1) {
+                        objTipoA.dibuja(gl);
+                        piso.dibuja(gl);
+                    }
+                    if (tipo == 2) {
+                        objTipoB.dibuja(gl);
+                        piso.dibuja(gl);
+                    }
+                    if (tipo == 0) {
+                        piso.dibuja(gl);
+                    }
+                }
+            }
+
+            requestAnimationFrame(dibuja);
+        }
+
+        function main() {
+            canvas = document.getElementById("webglcanvas");
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl = canvas.getContext("webgl2");
+            if (!gl) {
+                document.write("WebGL 2.0 no está disponible en tu navegador");
+                return;
+            }
+            canvas.addEventListener("mousedown", mouseDown, false);
+            canvas.addEventListener("mouseup", mouseUp, false);
+            canvas.addEventListener("mouseout", mouseUp, false);
+            canvas.addEventListener("mousemove", mouseMove, false);
+            canvas.addEventListener("wheel", zoom, { passive: false });
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            compilaEnlazaLosShaders();
+
+            document.getElementById("fondoPicker").addEventListener("input", function (e) {
+                let hex = e.target.value;
+                let r = parseInt(hex.substr(1, 2), 16) / 255;
+                let g = parseInt(hex.substr(3, 2), 16) / 255;
+                let b = parseInt(hex.substr(5, 2), 16) / 255;
+                gl.clearColor(r, g, b, 1.0);
+            });
+
+            /* Objetos */
+
+            //cubi1 = new Objeto(gl, "Modelos/cubo2.obj");
+            //cubo2 = new Objeto(gl, "Modelos/cubo2.obj");
+
+            cubo3 = new Objeto(gl, "Modelos/cubo2.obj");
+            piso = new Objeto(gl, "Modelos/piso3.obj");
+            objTipoA = new Objeto(gl, "Modelos/ongo2.obj");
+            objTipoB = new Objeto(gl, "Modelos/bomba.obj");
+
+
+            arcBall = new ArcBall(500.0, 500.0);
+
+            gl.useProgram(programaID);
+            uColor = gl.getUniformLocation(programaID, "uColor");
+            uMatrizProyeccion = gl.getUniformLocation(programaID, "uMatrizProyeccion");
+            uMatrizVista = gl.getUniformLocation(programaID, "uMatrizVista");
+            uMatrizModelo = gl.getUniformLocation(programaID, "uMatrizModelo");
+
+
+            inicializarGrilla();
+
+            perspective(MatrizProyeccion, 45, gl.canvas.width / gl.canvas.height, 0.1, 100.0);
+            gl.uniformMatrix4fv(uMatrizProyeccion, false, MatrizProyeccion);
+            identidad(MatrizVista);
+            traslacion(MatrizVista, 0, 0, -15.0);
+            gl.uniformMatrix4fv(uMatrizVista, false, MatrizVista);
+            identidad(MatrizRotacion);
+            arcBall.ajusta(gl.canvas.width, gl.canvas.height);
+            gl.enable(gl.DEPTH_TEST);
+            gl.clearColor(51 / 257, 47 / 257, 44 / 257, 1.0);
+            dibuja();
+        }
+        window.onload = main;
+    </script>
+</body>
+
+</html>
